@@ -7,7 +7,6 @@ const FORMATS = [
   ['txt', 'Plain Text (.txt)'],
   ['pdf', 'PDF (.pdf)'],
   ['docx', 'Word (.docx)'],
-  ['github', 'Push to GitHub'],
 ];
 
 /**

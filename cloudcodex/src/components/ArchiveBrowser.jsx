@@ -15,7 +15,6 @@ import {
   uploadDocument, exportDocument, fetchDocument,
   showModal, destroyModal,
   fetchCommentCount,
-  fetchArchiveRepos, linkArchiveRepo, unlinkArchiveRepo,
   apiFetch,
 } from '../util';
 import ConfirmDialog from './ConfirmDialog';
@@ -464,11 +463,6 @@ function LogTreeItem({ log, archiveId, depth = 0, onLogCreated, onLogDeleted, ge
   }, [log.id]);
 
   const handleExport = async (format) => {
-    if (format === 'github') {
-      const safeTitle = encodeURIComponent(log.title || 'document');
-      navigate(`/github?export_logId=${log.id}&export_title=${safeTitle}`);
-      return;
-    }
     try {
       if (format === 'pdf') {
         const res = await fetchDocument(log.id);
@@ -516,18 +510,6 @@ function LogTreeItem({ log, archiveId, depth = 0, onLogCreated, onLogDeleted, ge
         <span className="log-tree-title" onClick={() => navigate(`/archives/${archiveId}/doc/${log.id}`)}>
           {log.title}
         </span>
-        {log.gh_owner && (
-          <a
-            className="gh-doc-badge"
-            href={`https://github.com/${log.gh_owner}/${log.gh_repo}/blob/${log.gh_branch}/${log.gh_path}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={`${log.gh_owner}/${log.gh_repo}/${log.gh_path}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
-          </a>
-        )}
         <PresenceAvatars users={activeUsers} />
         <div className="log-tree-actions">
           <ExportMenu onExport={handleExport} btnClass="log-tree-export" btnLabel="⤓" menuClass="export-dropdown__menu--up" />
@@ -613,153 +595,6 @@ function LogTree({ archiveId, onLogCreated, getLogUsers }) {
           </ul>
         )
       }
-    </div>
-  );
-}
-
-// --- Link Repo Modal ---
-
-function LinkRepoModal({ archiveId, onLinked }) {
-  const [repos, setRepos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch('GET', '/api/github/repos');
-        if (!cancelled) setRepos(res.repos || []);
-      } catch (e) {
-        if (!cancelled) setError(e.status === 401 ? 'Connect your GitHub account first (Account → Linked Accounts).' : 'Could not load repos from GitHub.');
-      }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleLink = async (repo) => {
-    setError(null);
-    try {
-      await linkArchiveRepo(archiveId, {
-        repoFullName: repo.full_name,
-        repoOwner: repo.owner.login,
-        repoName: repo.name,
-      });
-      destroyModal();
-      onLinked?.();
-    } catch (e) {
-      setError(e.body?.message ?? 'Error linking repo.');
-    }
-  };
-
-  const filtered = repos.filter(r =>
-    r.full_name.toLowerCase().includes(filter.toLowerCase())
-  );
-
-  return (
-    <div className="modal-content">
-      <span className="close-button" onClick={destroyModal}>&times;</span>
-      <h2>Link GitHub Repo</h2>
-      {error && <p className="form-error">{error}</p>}
-      {loading && <p className="text-muted">Loading your GitHub repos...</p>}
-      {!loading && !error && (
-        <>
-          <input
-            type="text"
-            className="link-repo-search"
-            placeholder="Filter repos..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            autoFocus
-          />
-          <ul className="link-repo-list">
-            {filtered.length === 0 && <li className="text-muted text-sm">No matching repos.</li>}
-            {filtered.map(repo => (
-              <li key={repo.id} className="link-repo-item" onClick={() => handleLink(repo)}>
-                <span className="link-repo-item__name">{repo.full_name}</span>
-                {repo.private && <span className="link-repo-item__badge">Private</span>}
-                {repo.description && <span className="link-repo-item__desc text-muted text-sm">{repo.description}</span>}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
-
-// --- Linked Repos Panel (inline in archive card) ---
-
-function LinkedRepos({ archiveId }) {
-  const navigate = useNavigate();
-  const [repos, setRepos] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetchArchiveRepos(archiveId);
-      setRepos(res.repos || []);
-    } catch { /* ignore */ }
-    setLoading(false);
-  }, [archiveId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const handleUnlink = (repo) => {
-    showModal(
-      <ConfirmDialog
-        title="Unlink Repo"
-        message={`Remove "${repo.repo_full_name}" from this archive?`}
-        onConfirm={async () => {
-          await unlinkArchiveRepo(archiveId, repo.id);
-          destroyModal();
-          load();
-        }}
-        onCancel={destroyModal}
-      />,
-      'modal-md'
-    );
-  };
-
-  return (
-    <div className="archive-repos">
-      <div className="archive-repos__header">
-        <h4>Linked Repos</h4>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => showModal(<LinkRepoModal archiveId={archiveId} onLinked={load} />, 'modal-md')}
-        >
-          + Link Repo
-        </button>
-      </div>
-      {loading && <p className="text-muted text-sm">Loading repos...</p>}
-      {!loading && repos.length === 0 && (
-        <p className="text-muted text-sm">No repos linked yet.</p>
-      )}
-      {!loading && repos.length > 0 && (
-        <ul className="settings-item-list compact">
-          {repos.map(repo => (
-            <li key={repo.id} className="settings-item linked-repo-row">
-              <div className="linked-repo-row__info"
-                   onClick={() => navigate(`/github/${repo.repo_owner}/${repo.repo_name}?from_archive=${archiveId}`)}
-                   style={{ cursor: 'pointer' }}>
-                <svg className="linked-repo-row__icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
-                  <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
-                </svg>
-                <span className="linked-repo-row__name">{repo.repo_full_name}</span>
-              </div>
-              <span className="text-muted text-sm">
-                Linked {new Date(repo.linked_at).toLocaleDateString()}
-                {repo.linked_by_name ? ` by ${repo.linked_by_name}` : ''}
-              </span>
-              <button className="btn btn-danger btn-sm" onClick={() => handleUnlink(repo)}>Unlink</button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -1110,7 +945,6 @@ export default function ArchiveBrowser() {
             {expandedArchive === archive.id && (
               <div className="card__expanded-content archive-card__expanded">
                 <ArchiveAccess archiveId={archive.id} />
-                <LinkedRepos archiveId={archive.id} />
                 <LogTree key={archive.id} archiveId={archive.id} getLogUsers={getLogUsers} />
               </div>
             )}
