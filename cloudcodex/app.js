@@ -43,8 +43,10 @@ app.use('/api', cors({
     // Allow requests with no Origin header (same-origin, server-to-server, etc.)
     if (!origin) return cb(null, true);
     // Allow if an explicit allowlist is configured
-    const allowed = process.env.CORS_ORIGIN;
-    if (allowed && origin === allowed) return cb(null, true);
+    const allowed = process.env.CORS_ORIGIN?.split(',');
+    if (allowed && allowed.includes(origin)) {
+      return cb(null, true);
+    }
     // In development only, allow localhost origins on any port
     if (process.env.NODE_ENV !== 'production') {
       try {

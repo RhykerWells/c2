@@ -121,7 +121,6 @@ export default function Login({ inviteToken: propInviteToken, inviteEmail: propI
       return;
     }
     if (res.success) {
-      document.cookie = `sessionToken=${res.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
       window.location.reload();
     } else {
       setError(res.message ?? 'Login failed.');
@@ -138,7 +137,6 @@ export default function Login({ inviteToken: propInviteToken, inviteEmail: propI
     try {
       const res = await serverReq('POST', '/api/2fa/verify', { twoFactorToken, code: fields.code });
       if (res.success) {
-        document.cookie = `sessionToken=${res.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
         window.location.reload();
       } else {
         setError(res.message ?? 'Verification failed.');
@@ -188,7 +186,6 @@ export default function Login({ inviteToken: propInviteToken, inviteEmail: propI
       return;
     }
     if (res.success) {
-      document.cookie = `sessionToken=${res.token}; path=/; max-age=${7 * 24 * 60 * 60}; secure; samesite=strict`;
       destroyModal();
       showModal(<WelcomeSetup onComplete={() => window.location.reload()} />);
     } else {

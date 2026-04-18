@@ -148,7 +148,15 @@ router.post('/create-account', asyncHandler(async (req, res) => {
     [invitation.id]
   );
 
-  res.status(201).json({ success: true, token: sessionToken, user });
+  res.cookie('sessionToken', sessionToken, {
+    httpOnly: true,
+    secure: process.env.COOKIE_SECURE === 'true',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+
+  res.status(201).json({ success: true, user });
 }));
 
 /**
@@ -195,10 +203,20 @@ router.post('/setup', requireAuth, asyncHandler(async (req, res) => {
 
 /**
  * POST /api/update-account
- * Body: { token, userId, name?, email?, password? }
+ * Body: { token, userId, name?, email?, password? } (token optional)
  */
 router.post('/update-account', asyncHandler(async (req, res) => {
-  const { token, userId, name, email, password } = req.body;
+  let token = req.body.token;
+  const { userId, name, email, password } = req.body;
+
+  // If no token in body, try to read from cookie
+  if (!token) {
+    const cookieHeader = req.headers['cookie'];
+    if (cookieHeader) {
+      const match = cookieHeader.split('; ').find(c => c.startsWith('sessionToken='));
+      if (match) token = match.split('=')[1];
+    }
+  }
 
   if (!token || !userId) {
     return res.status(400).json({ success: false, message: 'Token and userId are required' });
@@ -347,15 +365,32 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   const sessionToken = await generateSessionToken(user, req.ip, req.headers['user-agent']);
 
-  res.json({ success: true, token: sessionToken, user });
+  res.cookie('sessionToken', sessionToken, {
+    httpOnly: true,
+    secure: process.env.COOKIE_SECURE === 'true',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+
+  res.json({ success: true, user });
 }));
 
 /**
  * POST /api/logout
- * Body: { token }
+ * Body: { token } (optional)
  */
 router.post('/logout', asyncHandler(async (req, res) => {
-  const { token } = req.body;
+  let token = req.body.token;
+
+  // If no token in body, try to read from cookie
+  if (!token) {
+    const cookieHeader = req.headers['cookie'];
+    if (cookieHeader) {
+      const match = cookieHeader.split('; ').find(c => c.startsWith('sessionToken='));
+      if (match) token = match.split('=')[1];
+    }
+  }
 
   if (!token) {
     return res.status(400).json({ success: false, message: 'Token is required' });
@@ -368,10 +403,19 @@ router.post('/logout', asyncHandler(async (req, res) => {
 
 /**
  * POST /api/validate-session
- * Body: { token }
+ * Body: { token } (optional, will read from cookie if not provided)
  */
 router.post('/validate-session', asyncHandler(async (req, res) => {
-  const { token } = req.body;
+  let token = req.body.token;
+
+  // If no token in body, try to read from cookie
+  if (!token) {
+    const cookieHeader = req.headers['cookie'];
+    if (cookieHeader) {
+      const match = cookieHeader.split('; ').find(c => c.startsWith('sessionToken='));
+      if (match) token = match.split('=')[1];
+    }
+  }
 
   if (!token) {
     return res.status(400).json({ valid: false, message: 'Token is required' });
@@ -385,10 +429,20 @@ router.post('/validate-session', asyncHandler(async (req, res) => {
 
 /**
  * POST /api/get-user
- * Body: { token, userId }
+ * Body: { token, userId } (token optional, reads from cookie)
  */
 router.post('/get-user', asyncHandler(async (req, res) => {
-  const { token, userId } = req.body;
+  let token = req.body.token;
+  const { userId } = req.body;
+
+  // If no token in body, try to read from cookie
+  if (!token) {
+    const cookieHeader = req.headers['cookie'];
+    if (cookieHeader) {
+      const match = cookieHeader.split('; ').find(c => c.startsWith('sessionToken='));
+      if (match) token = match.split('=')[1];
+    }
+  }
 
   if (!token || !userId) {
     return res.status(400).json({ success: false, message: 'Token and userId are required' });
@@ -746,7 +800,15 @@ router.post('/2fa/verify', asyncHandler(async (req, res) => {
   user.is_admin = Boolean(user.is_admin);
   const sessionToken = await generateSessionToken(user, req.ip, req.headers['user-agent']);
 
-  res.json({ success: true, token: sessionToken, user });
+  res.cookie('sessionToken', sessionToken, {
+    httpOnly: true,
+    secure: process.env.COOKIE_SECURE === 'true',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+  });
+
+  res.json({ success: true, user });
 }));
 
 /**
