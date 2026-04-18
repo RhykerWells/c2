@@ -211,21 +211,16 @@ function StdLayout({ children }) {
   });
 
   const checkAuth = useCallback(async () => {
-    const token = getSessionTokenFromCookie();
+    const loggedInUser = await attemptAutoLogin();
+    setUser(loggedInUser ?? false);
 
-    if (token) {
-      const loggedInUser = await attemptAutoLogin(token);
-      setUser(loggedInUser ?? false);
-
-      // Check admin status if logged in
-      if (loggedInUser) {
-        try {
-          const adminRes = await fetchAdminStatus();
-          setIsAdmin(adminRes.isAdmin === true);
-        } catch { /* ignore */ }
-      }
+    // Check admin status if logged in
+    if (loggedInUser) {
+      try {
+        const adminRes = await fetchAdminStatus();
+        setIsAdmin(adminRes.isAdmin === true);
+      } catch { /* ignore */ }
     } else {
-      setUser(false);
       if (window.location.pathname !== '/' && window.location.pathname !== '/404') {
         standardRedirect('/');
       }

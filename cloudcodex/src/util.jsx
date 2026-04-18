@@ -535,15 +535,14 @@ export function getSessionTokenFromCookie() {
 
 /**
  * Attempt to restore a user session from cache or by validating the token with the server.
- * @param {string} sessionToken
+ * Reads the token from the httpOnly cookie automatically.
  * @returns {Promise<Object|null>} The user object if valid, otherwise null
  */
-export async function attemptAutoLogin(sessionToken) {
+export async function attemptAutoLogin() {
   const cached = getSessStorage('currentUser');
   if (cached) return cached;
-  if (!sessionToken) return null;
 
-  const response = await serverReq('POST', '/api/validate-session', { token: sessionToken });
+  const response = await serverReq('POST', '/api/validate-session', {});
   if (response.valid) {
     setSessStorage('currentUser', response.user);
     return response.user;
