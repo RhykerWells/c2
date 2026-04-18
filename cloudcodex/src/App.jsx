@@ -12,7 +12,6 @@ import HomePage from './pages/HomePage'
 // Editor alone pulls in Tiptap, Yjs, lowlight, marked, turndown, etc.
 const Editor = lazy(() => import('./pages/Editor'));
 const ArchiveView = lazy(() => import('./pages/ArchiveView'));
-const GitHubPage = lazy(() => import('./pages/GitHubPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const WorkspacesPage = lazy(() => import('./pages/WorkspacesPage'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
@@ -48,8 +47,6 @@ function App() {
       <Route path="/archives/:archiveId/doc" element={<ArchiveView />} />
       <Route path="/workspaces" element={<WorkspacesPage />} />
       <Route path="/workspaces/:workspaceId" element={<WorkspacesPage />} />
-      <Route path="/github" element={<GitHubPage />} />
-      <Route path="/github/:owner/:repo" element={<GitHubPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/404" element={<NotFound />} />
       <Route path="*" element={<Navigate to="/404" replace />} />

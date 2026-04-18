@@ -16,7 +16,6 @@ DROP TABLE IF EXISTS squad_invitations;
 DROP TABLE IF EXISTS squad_members;
 DROP TABLE IF EXISTS versions;
 DROP TABLE IF EXISTS logs;
-DROP TABLE IF EXISTS archive_repos;
 DROP TABLE IF EXISTS archives;
 DROP TABLE IF EXISTS squad_permissions;
 DROP TABLE IF EXISTS permissions;
@@ -53,7 +52,7 @@ CREATE TABLE users (
 CREATE TABLE oauth_accounts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
-  provider ENUM('google', 'github') NOT NULL,
+  provider ENUM('google') NOT NULL,
   provider_user_id VARCHAR(255) NOT NULL,
   provider_email VARCHAR(255) NOT NULL,
   encrypted_token TEXT DEFAULT NULL,
@@ -198,20 +197,6 @@ CREATE TABLE archives (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
-CREATE TABLE archive_repos (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  archive_id INT NOT NULL,
-  repo_full_name VARCHAR(255) NOT NULL,
-  repo_owner VARCHAR(255) NOT NULL,
-  repo_name VARCHAR(255) NOT NULL,
-  linked_by INT NOT NULL,
-  linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (archive_id) REFERENCES archives(id) ON DELETE CASCADE,
-  FOREIGN KEY (linked_by) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_archive_repo (archive_id, repo_full_name),
-  INDEX (archive_id)
-) ENGINE=InnoDB;
-
 CREATE TABLE logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   archive_id INT,
@@ -233,22 +218,6 @@ CREATE TABLE logs (
   FOREIGN KEY (parent_id) REFERENCES logs(id) ON DELETE SET NULL,
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE github_links (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  log_id INT NOT NULL,
-  repo_owner VARCHAR(255) NOT NULL,
-  repo_name VARCHAR(255) NOT NULL,
-  file_path VARCHAR(500) NOT NULL,
-  branch VARCHAR(255) NOT NULL,
-  file_sha VARCHAR(64) DEFAULT NULL,
-  linked_by INT NOT NULL,
-  linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (log_id) REFERENCES logs(id) ON DELETE CASCADE,
-  FOREIGN KEY (linked_by) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_log_link (log_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE versions (

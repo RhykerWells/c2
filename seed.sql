@@ -14,7 +14,6 @@ DELETE FROM comments;
 DELETE FROM versions;
 DELETE FROM logs;
 DELETE FROM archives;
-DELETE FROM archive_repos;
 DELETE FROM squad_invitations;
 DELETE FROM squad_members;
 DELETE FROM squad_permissions;

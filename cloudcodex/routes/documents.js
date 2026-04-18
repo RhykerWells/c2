@@ -50,7 +50,6 @@ router.get('/document', requireAuth, asyncHandler(async (req, res) => {
        FROM logs pg
  INNER JOIN users u ON pg.created_by = u.id
  INNER JOIN archives p ON pg.archive_id = p.id
-  LEFT JOIN github_links gl ON pg.id = gl.log_id
       WHERE pg.id = ?
         AND ${readAccessWhere('p')}
       LIMIT 1`,
