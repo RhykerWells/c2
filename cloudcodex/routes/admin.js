@@ -296,16 +296,36 @@ router.delete('/admin/invitations/users/:id', requireAuth, requireAdmin, asyncHa
 router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
   const { token } = req.params;
 
-  const [userInvitation] = await c2_query(
-    `SELECT id, email, accepted, expires_at FROM user_invitations WHERE token = ? LIMIT 1`,
-    [token]
-  );
-
-  if (!userInvitation || userInvitation.accepted || userInvitation.expires_at <= new Date()) {
-    return res.json({ valid: false, message: 'Invalid or expired invitation' });
+  const isHex = /^[a-f0-9]+$/i.test(token);
+  if (!isHex) {
+    return res.status(400).json({ error: 'Invalid token' });
   }
 
-  res.json({ valid: true, email: userInvitation.email });
+  const isGlobal = token.length === 6;
+
+  if (isGlobal) {
+    const [globalInvitation] = await c2_query(
+      `SELECT id, max_uses, uses, expires_at FROM global_invitations WHERE code = ? AND revoked = 0 LIMIT 1`,
+      [token]
+    );
+
+    if (!globalInvitation || (globalInvitation.max_uses > 0 && (globalInvitation.uses ?? 0) >= globalInvitation.max_uses) ||
+        (globalInvitation.expires_at && new Date(globalInvitation.expires_at) <= new Date())) {
+      return res.json({ valid: false, message: 'Invalid or expired invitation' });
+    }
+
+    res.json({ valid: true });
+  } else {
+    const [userInvitation] = await c2_query(
+      `SELECT id, email, accepted, expires_at FROM user_invitations WHERE token = ? LIMIT 1`,
+      [token]
+    );
+    if (!userInvitation || userInvitation.accepted || userInvitation.expires_at <= new Date()) {
+      return res.json({ valid: false, message: 'Invalid or expired invitation' });
+    }
+
+    res.json({ valid: true, email: userInvitation.email });
+  }
 }));
 
 // ─── User permissions management (admin only) ──────────────
