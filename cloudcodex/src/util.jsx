@@ -109,7 +109,7 @@ export function timeAgo(timeStamp) {
   let timeAgo = '';
 
   if (s < 60) {
-    timeAgo = 'just now';
+    timeAgo = 'Just now';
   } else {
     const m = Math.floor(s / 60);
     if (m < 60) {
