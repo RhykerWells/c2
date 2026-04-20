@@ -24,6 +24,10 @@ import {
   fetchAdminUserInvitations,
   createAdminUserInvitation,
   deleteAdminUserInvitation,
+  fetchAdminGlobalInvitations,
+  fetchAdminGlobalInvitation,
+  createAdminGlobalInvitation,
+  revokeAdminGlobalInvitation,
   fetchAdminSquads,
   fetchAdminSquadMembers,
   updateAdminSquadMember,
@@ -231,6 +235,114 @@ function InviteUserModal({ onInvited }) {
           placeholder="newuser@example.com" />
         <button className="btn btn-primary stretched-button" onClick={handleSubmit}>Send Invitation</button>
       </div>
+    </div>
+  );
+}
+
+function InviteGlobalModal({ onInvited }) {
+  const [expiry, setExpiry] = useState('0');
+  const [maxUses, setMaxUses] = useState('0');
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  const handleSubmit = async () => {
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await createAdminGlobalInvitation(expiry, maxUses);
+      setSuccess(res.message + " " + res.code + " | " + res.signupUrl);
+      onCreated?.();
+    } catch (e) {
+      setError(e.body?.message ?? 'Error creating invitation.');
+    }
+  };
+
+  return (
+    <div className="modal-content">
+      <span className="close-button" onClick={destroyModal}>&times;</span>
+      <h2>Create global invite</h2>
+      {error && <p className="form-error">{error}</p>}
+      {success && <p className="form-success">{success}</p>}
+      <div className="modal-form">
+          <label htmlFor="expiry">Expiry Time:</label>
+          <select className="form-select" id="expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+            <option value="0">Never</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="360">6 hours</option>
+            <option value="720">12 hours</option>
+            <option value="1440">1 day</option>
+            <option value="10080">7 days</option>
+          </select>
+          <label htmlFor="maxUses">Max Uses:</label>
+          <select className="form-select" id="maxUses" value={maxUses} onChange={(e) => setMaxUses(e.target.value)}>
+            <option value="0">Unlimited</option>
+            <option value="1">1</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        <button className="btn btn-primary stretched-button" onClick={handleSubmit}>Send Invitation</button>
+      </div>
+    </div>
+  );
+}
+
+function InvitedUserModal({ onCreated, inviteID }) {
+  const [invitation, setInvitation] = useState([]);
+  const [invitationUsers, setInvitationUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { dateShorthand: createdAtShorthand, dateLonghand: createdAtLonghand } = timestampToReadable(invitation.created_at);
+
+  const load = useCallback(async () => {
+    try {
+      const invitationRes = await fetchAdminGlobalInvitation(inviteID);
+      setInvitation(invitationRes.invitation || []);
+      setInvitationUsers(invitationRes.tracked_users || []);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="modal-content">
+      <span className="close-button" onClick={destroyModal}>&times;</span>
+      <h2 style={{ marginBottom: 0 }}>Users joined via global invite <code>{loading ? ("Loading…") : (invitation.code)}</code></h2>
+      <p className="text-muted text-sm" style={{ marginBottom: 10 }}>
+        Created at: <span title={createdAtLonghand} style={{ cursor: 'pointer' }}>{createdAtShorthand}</span>
+      </p>
+      {loading ? (
+        <p className="text-muted">Loading…</p>
+      ) : invitationUsers.length === 0 ? (
+        <p className="text-muted">No invitations used yet.</p>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {invitationUsers.map(inv => {
+                return (
+                  <tr key={inv.id}>
+                    <td className="">
+                        {inv.invited_user_name}
+                    </td>
+                    <td />
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -717,12 +829,17 @@ function SquadsPanel() {
 
 function InvitationsPanel() {
   const [userInvitations, setUserInvitations] = useState([]);
+  const [globalInvitations, setGlobalInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetchAdminUserInvitations();
-      setUserInvitations(res.invitations || []);
+      const [usersRes, globalRes] = await Promise.all([
+        fetchAdminUserInvitations(),
+        fetchAdminGlobalInvitations()
+      ]);
+      setUserInvitations(usersRes.invitations || []);
+      setGlobalInvitations(globalRes.invitations || []);
     } catch { /* ignore */ }
     setLoading(false);
   }, []);
@@ -738,60 +855,140 @@ function InvitationsPanel() {
     }
   };
 
-  return (
-    <div className="admin-panel">
-      <div className="admin-panel__header">
-        <h3>User Invitations</h3>
-        <button className="btn btn-primary btn-sm" onClick={() => showModal(<InviteUserModal onInvited={load} />, 'modal-md')}>
-          + Invite User
-        </button>
-      </div>
-      {loading ? (
-        <p className="text-muted">Loading…</p>
-        ) : userInvitations.length === 0 ? (
-        <p className="text-muted">No invitations sent yet.</p>
-      ) : (
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Status</th>
-                <th>Invited By</th>
-                <th>Sent</th>
-                <th>Expires</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-                {userInvitations.map(inv => {
-                const expired = new Date(inv.expires_at) <= new Date();
-                const status = inv.accepted ? 'Accepted' : expired ? 'Expired' : 'Pending';
-                const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
-                const { dateShorthand: expiresShorthand, dateLonghand: expiresLonghand } = timeAgo(inv.expires_at);
+  const handleRevokeGlobalInvitation = async (inv) => {
+    try {
+      await revokeAdminGlobalInvitation(inv.id);
+      load();
+    } catch (e) {
+      toastError(e.body?.message ?? 'Error revoking invitation.')
+    }
+  };
 
-                return (
-                  <tr key={inv.id}>
-                    <td>{inv.email}</td>
-                    <td>
-                      <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
-                    </td>
-                    <td>{inv.invited_by_name}</td>
-                    <td><span title={createdLonghand}  style={{ cursor: 'pointer'}}>{createdShorthand}</span></td>
-                    <td><span title={expiresLonghand}  style={{ cursor: 'pointer'}}>{expiresShorthand}</span></td>
-                    <td>
-                      {!inv.accepted && !expired && (
-                          <button className="btn btn-ghost btn-sm" onClick={() => handleRevokeUserInvitation(inv)}>Revoke</button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+  return (
+    <>
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h3>User Invitations</h3>
+          <button className="btn btn-primary btn-sm" onClick={() => showModal(<InviteUserModal onInvited={load} />, 'modal-md')}>
+            + Invite User
+          </button>
         </div>
-      )}
-    </div>
+        {loading ? (
+          <p className="text-muted">Loading…</p>
+        ) : userInvitations.length === 0 ? (
+          <p className="text-muted">No invitations sent yet.</p>
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Invited By</th>
+                  <th>Sent</th>
+                  <th>Expires</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {userInvitations.map(inv => {
+                  const expired = new Date(inv.expires_at) <= new Date();
+                  const status = inv.accepted ? 'Accepted' : expired ? 'Expired' : 'Pending';
+                  const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
+                  const { dateShorthand: expiresShorthand, dateLonghand: expiresLonghand } = timeAgo(inv.expires_at);
+
+                  return (
+                    <tr key={inv.id}>
+                      <td>{inv.email}</td>
+                      <td>
+                        <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
+                      </td>
+                      <td>{inv.invited_by_name}</td>
+                      <td><span title={createdLonghand}  style={{ cursor: 'pointer'}}>{createdShorthand}</span></td>
+                      <td><span title={expiresLonghand}  style={{ cursor: 'pointer'}}>{expiresShorthand}</span></td>
+                      <td>
+                        {!inv.accepted && !expired && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => handleRevokeUserInvitation(inv)}>Revoke</button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <div className="admin-panel">
+        <div className="admin-panel__header">
+          <h3>Global Invitations</h3>
+          <button className="btn btn-primary btn-sm" onClick={() => showModal(<InviteGlobalModal onCreated={load} />, 'modal-md')}>
+            + Create invite
+          </button>
+        </div>
+        {loading ? (
+          <p className="text-muted">Loading…</p>
+        ) : globalInvitations.length === 0 ? (
+          <p className="text-muted">No invitations sent yet.</p>
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Status</th>
+                  <th>Invited By</th>
+                  <th>Max uses</th>
+                  <th>Uses</th>
+                  <th>Created</th>
+                  <th>Expires</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {globalInvitations.map(inv => {
+                  const exhausted = inv.max_uses !== null && inv.uses >= inv.max_uses;  
+                  const hasExpired = inv.expires_at && new Date(inv.expires_at) < new Date();
+                  const status = inv.revoked ? "Revoked" : hasExpired ? "Expired" : exhausted ? 'Exhausted' : 'Active';
+
+                  const { dateShorthand : createdShorthand, dateLonghand : createdLonghand } = timeAgo(inv.created_at);
+                  const { dateShorthand : expiresShorthand, dateLonghand : expiresLonghand } = timeAgo(inv.expires_at);
+                  return (
+                    <tr key={inv.id}>
+                      <td>{inv.code}</td>
+                      <td>
+                        <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
+                      </td>
+                      <td>{inv.invited_by_name}</td>
+                      <td>{inv.max_uses ?? '∞'}</td>
+                      <td>{inv.uses}</td>
+                      <td><span title={createdLonghand} style={{ cursor: 'pointer' }}>{createdShorthand}</span></td>
+                      <td>
+                        {hasExpired ? (
+                          "Expired " + <span title={expiresLonghand} style={{ cursor: 'pointer' }}>{expiresShorthand}</span>
+                        ) : inv.expires_at ? (
+                          timeAgo(inv.expires_at)
+                        ) : (
+                          "Never"
+                        )}
+                      </td>
+                      <td>
+                        {
+                          <button className="btn btn-ghost btn-sm" onClick={() => showModal(<InvitedUserModal onCreated={load} inviteID={inv.id}/>, 'modal-md')}>View invited users</button>
+                        }
+                        {!exhausted && !hasExpired && !inv.revoked && (
+                          <button style={{ marginLeft: 5 }} className="btn btn-ghost btn-sm" onClick={() => handleRevokeGlobalInvitation(inv)}>Revoke</button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

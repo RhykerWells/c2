@@ -6895,6 +6895,8 @@ body {
 
 .admin-table-wrap {
   overflow-x: auto;
+  max-height: 40rem;
+  overflow-y: auto;
 }
 
 .admin-table {
@@ -7156,14 +7158,19 @@ body {
   color: var(--brand-blue);
 }
 
-.status-badge--accepted {
+.status-badge--accepted, .status-badge--active {
   background: rgba(76, 175, 80, 0.15);
   color: var(--color-success);
 }
 
-.status-badge--expired {
+.status-badge--expired, .status-badge--exhausted {
   background: rgba(136, 136, 136, 0.15);
   color: var(--text-muted);
+}
+
+.status-badge--revoked {
+  background: rgba(229, 69, 69, 0.15);
+  color: var(--color-danger);
 }
 
 /* Danger ghost button */

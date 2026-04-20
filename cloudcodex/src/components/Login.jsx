@@ -289,7 +289,7 @@ export default function Login({ inviteToken: propInviteToken, inviteEmail: propI
                 <label htmlFor="email">Email:</label>
                 <input type="email" id="email" name="email" value={fields.email} onChange={handleChange}
                   onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-                  readOnly={Boolean(inviteToken)}
+                  readOnly={Boolean(inviteToken.length !== 6)}
                   className={fields.email && !isValidEmail(fields.email) ? 'input--invalid' : fields.email ? 'input--available' : ''} />
                 {fields.email && !isValidEmail(fields.email) && (
                   <span className="input-hint input-hint--invalid">Please enter a valid email</span>
