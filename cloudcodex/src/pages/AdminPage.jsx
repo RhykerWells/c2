@@ -295,7 +295,7 @@ function InvitedUserModal({ onCreated, inviteID }) {
   const [invitation, setInvitation] = useState([]);
   const [invitationUsers, setInvitationUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { dateShorthand: createdAtShorthand, dateLonghand: createdAtLonghand } = timestampToReadable(invitation.created_at);
+  const { dateShorthand: createdAtShorthand, dateLonghand: createdAtLonghand } = timeAgo(invitation.created_at);
 
   const load = useCallback(async () => {
     try {
