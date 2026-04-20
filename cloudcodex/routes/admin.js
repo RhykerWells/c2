@@ -328,6 +328,118 @@ router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
   }
 }));
 
+// ─── Global invitation (admin only) ───────────────────────────
+
+/**
+ * GET /api/admin/invitations/global
+ * List all global invitations (admin only).
+ */
+router.get('/admin/invitations/global', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const invitations = await c2_query(
+    `SELECT gi.id, gi.code, gi.max_uses, gi.uses, gi.expires_at, gi.created_at, gi.revoked,
+            u.name as invited_by_name
+    FROM global_invitations gi
+    JOIN users u ON u.id = gi.invited_by
+    ORDER BY gi.created_at DESC`
+  );
+
+  res.json({ success: true, invitations });
+}));
+
+/**
+ * POST /api/admin/invitations/global
+ * Create a new global invitation.
+ */
+router.post('/admin/invitations/global', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const { expiry, maxUses } = req.body;
+
+  const expiryOptionsMinutes = [0, 30, 60, 360, 720, 1440, 10080];
+  const maxUsesOptions = [0, 1, 5, 10, 25, 50, 100];
+
+
+  if (!expiryOptionsMinutes.includes(parseInt(expiry))) {
+    return res.status(400).json({ success: false, message: 'Invalid expiry value' });
+  }
+
+  let expiresAt = null;
+  if (expiry !== '0') {
+    expiresAt = new Date(Date.now() + parseInt(expiry) * 60 * 1000); // Convert minutes to milliseconds
+  }
+
+  if (!maxUsesOptions.includes(parseInt(maxUses))) {
+    return res.status(400).json({ success: false, message: 'Invalid max uses value' });
+  }
+
+  const code = crypto.randomBytes(3).toString('hex');
+
+  // Insert the new global invitation into the database
+  await c2_query(
+    `INSERT INTO global_invitations (code, max_uses, expires_at, invited_by)
+      VALUES (?, ?, ?, ?)`,
+    [code, maxUses, expiresAt, req.user.id]
+  );
+
+  const signupUrl = `${APP_URL}/?invite=${code}`;
+
+  res.status(201).json({ success: true, message: 'Global invitation created', code: code, signupUrl: signupUrl });
+}));
+
+/**
+ * GET /api/admin/invitations/global/:id
+ * Get details about a specific global invitation, including tracked users (admin only).
+ */
+router.get('/admin/invitations/global/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid invitation ID' });
+  }
+
+  const [invitation] = await c2_query(
+    `SELECT id, code, invited_by, max_uses, uses, expires_at, created_at, revoked FROM global_invitations WHERE id = ?`, [id]
+  );
+
+  if (!invitation) {
+    return res.status(404).json({ success: false, message: 'Invitation not found' });
+  }
+
+  const trackedUsers = await c2_query(
+    `SELECT git.id, git.user_id, iu.name AS invited_user_name
+    FROM global_invitations_tracked git
+    JOIN users iu ON iu.id = git.user_id
+    WHERE git.invitation_id = ?`,
+    [id]
+  );
+
+  res.json({
+    success: true,
+    invitation: {
+      id: invitation.id,
+      code: invitation.code,
+      invited_by: invitation.invited_by,
+      max_uses: invitation.max_uses,
+      uses: invitation.uses,
+      expires_at: invitation.expires_at,
+      created_at: invitation.created_at,
+      revoked: invitation.revoked,
+    },
+    tracked_users: trackedUsers
+  });
+}))
+
+/**
+ * DELETE /api/admin/invitations/global/:id
+ * Cancel/revoke a global invitation (admin only).
+ */
+router.delete('/admin/invitations/global/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid invitation ID' });
+  }
+
+  await c2_query(`UPDATE global_invitations SET revoked = true WHERE id = ?`, [id]);
+  res.json({ success: true });
+}));
+
 // ─── User permissions management (admin only) ──────────────
 
 /**
