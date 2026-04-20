@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { browseLogs, searchLogs, fetchFavorites, addFavorite, removeFavorite, fetchSearchFilters, docUrl } from '../util';
+import { browseLogs, searchLogs, fetchFavorites, addFavorite, removeFavorite, fetchSearchFilters, docUrl, timeAgo } from '../util';
 import usePresence from '../hooks/usePresence';
 import PresenceAvatars from './PresenceAvatars';
 
@@ -30,7 +30,7 @@ function HighlightedSnippet({ snippet, matchStart, matchEnd }) {
 }
 
 function ExploreCard({ item, isSearch, onClick, activeUsers, isFavorited, onToggleFavorite }) {
-  const date = item.created_at ? new Date(item.created_at).toLocaleDateString() : null;
+  const { dateShorthand, dateLonghand } = timeAgo(item.created_at);
   const words = item.char_count ? Math.round(item.char_count / 5) : null;
 
   const handleStar = (e) => {
@@ -63,7 +63,7 @@ function ExploreCard({ item, isSearch, onClick, activeUsers, isFavorited, onTogg
       <div className="explore-card__meta">
         {item.archive_name && <span className="explore-card__archive">{item.archive_name}</span>}
         {item.author && <span className="explore-card__author">{item.author}</span>}
-        {date && <span className="explore-card__date">{date}</span>}
+        {item.created_at && <span className="explore-card__date" title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span>}
         {words !== null && <span className="explore-card__words">~{words.toLocaleString()} words</span>}
       </div>
       {isSearch && item.snippet ? (

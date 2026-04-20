@@ -725,50 +725,56 @@ function VersionHistory({ logId, onRestore, versionKey }) {
     <div className="version-history">
       <h3>Version History</h3>
       <ul className="version-list">
-        {versions.map(v => (
-          <li key={v.id}>
-            <div className={`version-list__item${previewId === v.id ? ' version-list__item--active' : ''}`}
-                 onClick={() => handlePreview(v)} role="button" tabIndex={0}>
-              <div className="version-list__info">
-                <span className="version-list__heading">
-                  {v.title || `Version ${v.version_number}`}
-                </span>
-                {v.notes && <span className="version-list__notes">{v.notes}</span>}
-                <span className="version-list__meta">
-                  <span className="version-list__badge">v{v.version_number}</span>
-                  <span className="version-list__date">{timeAgo(v.saved_at)}</span>
-                  {v.created_by && <span className="version-list__author">{v.created_by}</span>}
-                </span>
-              </div>
-              {previewId !== v.id && <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); handleRestore(v); }}>Restore</button>}
-            </div>
-            {previewId === v.id && preview && (
-              <div className="version-preview">
-                <div className="version-preview__header">
-                  <div className="version-preview__title-block">
-                    <span className="version-preview__title">{preview.title || `Version ${preview.version_number}`}</span>
-                    <span className="version-preview__meta">v{preview.version_number} &middot; {new Date(preview.saved_at).toLocaleString()}{preview.created_by ? ` · ${preview.created_by}` : ''}</span>
-                  </div>
-                  <span className="version-preview__actions">
-                    <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(preview)}>Delete</button>
-                    <button className="btn btn-primary btn-sm" onClick={() => handleRestore(preview)}>Restore</button>
+        {versions.map(v => {
+          const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(v.saved_at);
+
+          return (
+            <li key={v.id}>
+              <div className={`version-list__item${previewId === v.id ? ' version-list__item--active' : ''}`}
+                onClick={() => handlePreview(v)} role="button" tabIndex={0}>
+                <div className="version-list__info">
+                  <span className="version-list__heading">
+                    {v.title || `Version ${v.version_number}`}
+                  </span>
+                  {v.notes && <span className="version-list__notes">{v.notes}</span>}
+                  <span className="version-list__meta">
+                    <span className="version-list__badge">v{v.version_number}</span>
+                    <span className="version-list__date" title={createdLonghand} style={{ cursor: 'pointer'}}>{createdShorthand}</span>
+                    {v.created_by && <span className="version-list__author">{v.created_by}</span>}
                   </span>
                 </div>
-                {preview.notes && <p className="version-preview__notes">{preview.notes}</p>}
-                <details className="version-preview__details">
-                  <summary>View document content</summary>
-                  <div className="version-preview__content" dangerouslySetInnerHTML={{ __html: sanitizeHtml(preview.html_content) }} />
-                </details>
+                {previewId !== v.id && <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); handleRestore(v); }}>Restore</button>}
               </div>
-            )}
-          </li>
-        ))}
+              {previewId === v.id && preview && (
+                <div className="version-preview">
+                  <div className="version-preview__header">
+                    <div className="version-preview__title-block">
+                      <span className="version-preview__title">{preview.title || `Version ${preview.version_number}`}</span>
+                      <span className="version-preview__meta">v{preview.version_number} &middot; {new Date(preview.saved_at).toLocaleString()}{preview.created_by ? ` · ${preview.created_by}` : ''}</span>
+                    </div>
+                    <span className="version-preview__actions">
+                      <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(preview)}>Delete</button>
+                      <button className="btn btn-primary btn-sm" onClick={() => handleRestore(preview)}>Restore</button>
+                    </span>
+                  </div>
+                  {preview.notes && <p className="version-preview__notes">{preview.notes}</p>}
+                  <details className="version-preview__details">
+                    <summary>View document content</summary>
+                    <div className="version-preview__content" dangerouslySetInnerHTML={{ __html: sanitizeHtml(preview.html_content) }} />
+                  </details>
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
 }
 
 // --- Editor Log ---
+
+const isMobileDevice = () => window.matchMedia('(max-width: 768px)').matches;
 
 export default function Editor({ embedded = false } = {}) {
   const params = useParams();
@@ -1250,9 +1256,11 @@ export default function Editor({ embedded = false } = {}) {
           <>
             <div className="editor-toolbar">
               <div className="toolbar-group">
-                <button className="btn btn-primary btn-sm" onClick={() => setViewMode('edit')}>
-                  ✏️ Edit
-                </button>
+                {!isMobileDevice() && (
+                  <button className="btn btn-primary btn-sm" onClick={() => setViewMode('edit')}>
+                    ✏️ Edit
+                  </button>
+                )}
               </div>
 
               <span className="toolbar-divider" />

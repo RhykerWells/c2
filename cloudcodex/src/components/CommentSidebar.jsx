@@ -45,6 +45,8 @@ function CommentThread({
 
   const isAuthor = comment.user_id === currentUserId;
   const isOpen = comment.status === 'open';
+  
+  const { dateShorthand, dateLonghand } = timeAgo(comment.created_at);
 
   return (
     <div
@@ -60,7 +62,7 @@ function CommentThread({
     >
       <div className="comment-thread__header">
         <span className={`comment-tag comment-tag--${comment.tag}`}>{TAG_LABELS[comment.tag] || comment.tag}</span>
-        <span className="comment-thread__meta">{comment.user_name} &middot; {timeAgo(comment.created_at)}</span>
+        <span className="comment-thread__meta">{comment.user_name} &middot; <span className="comment-thread__timeAgo" title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span></span>
         {comment.status !== 'open' && (
           <span className="comment-thread__status-badge">{comment.status}</span>
         )}
@@ -78,18 +80,22 @@ function CommentThread({
       {/* Replies */}
       {comment.replies?.length > 0 && (
         <div className="comment-thread__replies">
-          {comment.replies.map(r => (
-            <div key={r.id} className="comment-reply">
-              <div className="comment-reply__header">
-                <span className="comment-reply__author">{r.user_name}</span>
-                <span className="comment-reply__time">{timeAgo(r.created_at)}</span>
-                {r.user_id === currentUserId && (
-                  <button className="comment-btn comment-btn--icon" onClick={() => onDeleteReply(r.id, comment.id)} title="Delete reply">&times;</button>
-                )}
+          {comment.replies.map(r => {
+            const { dateShorthand, dateLonghand } = timeAgo(r.created_at);
+
+            return (
+              <div key={r.id} className="comment-reply">
+                <div className="comment-reply__header">
+                  <span className="comment-reply__author">{r.user_name}</span>
+                  <span className="comment-reply__time" title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span>
+                  {r.user_id === currentUserId && (
+                    <button className="comment-btn comment-btn--icon" onClick={() => onDeleteReply(r.id, comment.id)} title="Delete reply">&times;</button>
+                  )}
+                </div>
+                <div className="comment-reply__body">{r.content}</div>
               </div>
-              <div className="comment-reply__body">{r.content}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

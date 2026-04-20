@@ -81,17 +81,56 @@ export async function serverReq(reqType, url, data, headers = {}) {
 
 // --- Shared helpers ---
 
-/** Human-readable relative time string (e.g. "3m ago", "2d ago"). */
-export function timeAgo(dateStr) {
-  const s = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+/** Human-readable relative timestamps */
+export function timeAgo(timeStamp) {
+  // Convert the Unix timestamp to a JavaScript Date object (local time in the user's browser)
+  const date = new Date(timeStamp);
+
+  // Get the local date components (day, month, year) with leading zeros if needed
+  const dateDay = date.getDate().toString().padStart(2, '0');
+  const dateMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+  const dateYear = date.getFullYear();
+
+  // Shortened date format (DD/MM/YYYY)
+  const dateShorthand = `${dateDay}/${dateMonth}/${dateYear}`;
+
+  // Longhand date format (e.g., Thu, 5 May 2026, 14:31)
+  let dateLonghand = date.toLocaleString('en-GB', {
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit'
+  });
+
+  // Time difference calculation for "timeAgo"
+  const s = Math.floor((Date.now() - date.getTime()) / 1000); // seconds difference from now
+  let timeAgo = '';
+
+  if (s < 60) {
+    timeAgo = 'just now';
+  } else {
+    const m = Math.floor(s / 60);
+    if (m < 60) {
+      timeAgo = `${m}m ago`;
+    } else {
+      const h = Math.floor(m / 60);
+      if (h < 24) {
+        timeAgo = `${h}h ago`;
+      } else {
+        const d = Math.floor(h / 24);
+        if (d < 30) {
+          timeAgo = `${d}d ago`;
+        }
+      }
+    }
+  }
+
+  // If timeAgo is set, use it. Otherwise, fall back to dateShorthand.
+  const finalShorthand = timeAgo || dateShorthand;
+
+  return { dateShorthand: finalShorthand, dateLonghand };
 }
 
 /** Build a URL to open a document, accounting for archive context. */

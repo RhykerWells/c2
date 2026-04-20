@@ -416,18 +416,22 @@ function WorkspacesPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(workspace => (
-                <tr key={workspace.id}>
-                  <td className="admin-cell--name">{workspace.name}</td>
-                  <td>{workspace.owner}</td>
-                  <td>{workspace.squad_count}</td>
-                  <td>{workspace.member_count}</td>
-                  <td>{timeAgo(workspace.created_at)}</td>
-                  <td>
-                    <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(workspace)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map(workspace => {
+                const { dateShorthand, dateLonghand } = timeAgo(workspace.created_at);
+
+                return (
+                  <tr key={workspace.id}>
+                    <td className="admin-cell--name">{workspace.name}</td>
+                    <td>{workspace.owner}</td>
+                    <td>{workspace.squad_count}</td>
+                    <td>{workspace.member_count}</td>
+                    <td><span title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span></td>
+                    <td>
+                      <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(workspace)}>Delete</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -514,36 +518,40 @@ function UsersPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => (
-                <tr key={u.id}>
-                  <td className="admin-cell--user">
-                    {u.avatar_url && <img src={u.avatar_url} alt="" className="admin-user-avatar" />}
-                    {u.name}
-                  </td>
-                  <td>{u.email}</td>
-                  <td>{u.squad_count}</td>
-                  <td>
-                    <button
-                      className={`admin-badge ${u.is_admin ? 'admin-badge--admin' : 'admin-badge--user'}`}
-                      onClick={() => handleToggleAdmin(u)}
-                      title={u.is_admin ? 'Click to revoke admin' : 'Click to grant admin'}
-                    >
-                      {u.is_admin ? 'Admin' : 'User'}
-                    </button>
-                  </td>
-                  <td>{timeAgo(u.created_at)}</td>
-                  <td>
-                    <div className="admin-cell-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => showModal(<UserPermissionsModal user={u} onUpdated={load} />, 'modal-md')}>
-                        Permissions
+              {filtered.map(u => {
+                const { dateShorthand, dateLonghand } = timeAgo(u.created_at);
+
+                return (
+                  <tr key={u.id}>
+                    <td className="admin-cell--user">
+                      {u.avatar_url && <img src={u.avatar_url} alt="" className="admin-user-avatar" />}
+                      {u.name}
+                    </td>
+                    <td>{u.email}</td>
+                    <td>{u.squad_count}</td>
+                    <td>
+                      <button
+                        className={`admin-badge ${u.is_admin ? 'admin-badge--admin' : 'admin-badge--user'}`}
+                        onClick={() => handleToggleAdmin(u)}
+                        title={u.is_admin ? 'Click to revoke admin' : 'Click to grant admin'}
+                        >
+                        {u.is_admin ? 'Admin' : 'User'}
                       </button>
-                      {!u.is_admin && (
-                        <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(u)}>Delete</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td><span title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span></td>
+                    <td>
+                      <div className="admin-cell-actions">
+                        <button className="btn btn-ghost btn-sm" onClick={() => showModal(<UserPermissionsModal user={u} onUpdated={load} />, 'modal-md')}>
+                          Permissions
+                        </button>
+                        {!u.is_admin && (
+                          <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(u)}>Delete</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -759,6 +767,9 @@ function InvitationsPanel() {
               {invitations.map(inv => {
                 const expired = new Date(inv.expires_at) <= new Date();
                 const status = inv.accepted ? 'Accepted' : expired ? 'Expired' : 'Pending';
+                const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
+                const { dateShorthand: expiresShorthand, dateLonghand: expiresLonghand } = timeAgo(inv.expires_at);
+
                 return (
                   <tr key={inv.id}>
                     <td>{inv.email}</td>
@@ -766,8 +777,8 @@ function InvitationsPanel() {
                       <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
                     </td>
                     <td>{inv.invited_by_name}</td>
-                    <td>{timeAgo(inv.created_at)}</td>
-                    <td>{timeAgo(inv.expires_at)}</td>
+                    <td><span title={createdLonghand}  style={{ cursor: 'pointer'}}>{createdShorthand}</span></td>
+                    <td><span title={expiresLonghand}  style={{ cursor: 'pointer'}}>{expiresShorthand}</span></td>
                     <td>
                       {!inv.accepted && !expired && (
                         <button className="btn btn-ghost btn-sm" onClick={() => handleRevoke(inv)}>Revoke</button>
