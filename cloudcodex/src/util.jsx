@@ -108,7 +108,25 @@ export function timeAgo(timeStamp) {
   const s = Math.floor((Date.now() - date.getTime()) / 1000); // seconds difference from now
   let timeAgo = '';
 
-  if (s < 60) {
+  // Check if the time is in the future then default to past
+  if (s < 0) {
+    const futureTime = Math.abs(s);
+    const m = Math.floor(futureTime / 60);
+
+    if (m < 60) {
+      timeAgo = `In ${m}m`;
+    } else {
+      const h = Math.floor(m / 60);
+      if (h < 24) {
+        timeAgo = `In ${h}h`;
+      } else {
+        const d = Math.floor(h / 24);
+        if (d < 30) {
+          timeAgo = `In ${d}d`;
+        }
+      }
+    }
+  } else if (s < 60) {
     timeAgo = 'Just now';
   } else {
     const m = Math.floor(s / 60);
