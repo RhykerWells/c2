@@ -965,9 +965,11 @@ function InvitationsPanel() {
                       <td><span title={createdLonghand} style={{ cursor: 'pointer' }}>{createdShorthand}</span></td>
                       <td>
                         {hasExpired ? (
-                          "Expired " + <span title={expiresLonghand} style={{ cursor: 'pointer' }}>{expiresShorthand}</span>
+                          <>
+                            <span title={expiresLonghand} style={{ cursor: 'pointer' }}>Expired {expiresShorthand}</span>
+                          </>
                         ) : inv.expires_at ? (
-                          timeAgo(inv.expires_at)
+                          <span title={expiresLonghand} style={{ cursor: 'pointer' }}>{expiresShorthand}</span>
                         ) : (
                           "Never"
                         )}
