@@ -152,71 +152,80 @@ export default function CommentManager({ logId, logTitle, onClose, onNavigate })
         <p className="text-muted">No comments match the current filters.</p>
       ) : (
         <div className="comment-manager__list">
-          {filtered.map(c => (
-            <div key={c.id} className={`comment-manager__item comment-manager__item--${c.tag} ${c.status !== 'open' ? 'comment-manager__item--closed' : ''}`}>
-              <div className="comment-manager__item-header">
-                <span className={`comment-tag comment-tag--${c.tag}`}>{TAG_LABELS[c.tag] || c.tag}</span>
-                <span className="comment-manager__item-author">{c.user_name}</span>
-                <span className="comment-manager__item-time">{timeAgo(c.created_at)}</span>
-                {c.status !== 'open' && <span className="comment-manager__item-status">{c.status}</span>}
-              </div>
+          {filtered.map(c => {
+            const { dateShorthand, dateLonghand } = timeAgo(c.created_at);
 
-              {c.selected_text && (
-                <div className="comment-manager__item-quote">
-                  &#8220;{c.selected_text}&#8221;
+            return (
+              <div key={c.id} className={`comment-manager__item comment-manager__item--${c.tag} ${c.status !== 'open' ? 'comment-manager__item--closed' : ''}`}>
+                <div className="comment-manager__item-header">
+                  <span className={`comment-tag comment-tag--${c.tag}`}>{TAG_LABELS[c.tag] || c.tag}</span>
+                  <span className="comment-manager__item-author">{c.user_name}</span>
+                  <span className="comment-manager__item-time" title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span>
+                  {c.status !== 'open' && <span className="comment-manager__item-status">{c.status}</span>}
                 </div>
-              )}
 
-              <div className="comment-manager__item-body">{c.content}</div>
-
-              {/* Replies */}
-              {c.replies?.length > 0 && (
-                <div className="comment-manager__replies">
-                  {c.replies.map(r => (
-                    <div key={r.id} className="comment-manager__reply">
-                      <span className="comment-manager__reply-author">{r.user_name}</span>
-                      <span className="comment-manager__reply-time">{timeAgo(r.created_at)}</span>
-                      <div className="comment-manager__reply-body">{r.content}</div>
-                      {r.user_id && (
-                        <button className="comment-btn comment-btn--icon" onClick={() => handleDeleteReply(r.id, c.id)} title="Delete reply">&times;</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="comment-manager__item-actions">
-                {onNavigate && (
-                  <button className="comment-btn comment-btn--sm" onClick={() => onNavigate(c)}>Go to</button>
-                )}
-                {replyingTo === c.id ? (
-                  <div className="comment-manager__reply-form">
-                    <textarea
-                      className="comment-textarea"
-                      value={replyText}
-                      onChange={e => setReplyText(e.target.value)}
-                      placeholder="Write a reply..."
-                      rows={2}
-                    />
-                    <button className="comment-btn comment-btn--primary comment-btn--sm" onClick={() => handleReply(c.id)} disabled={!replyText.trim()}>Reply</button>
-                    <button className="comment-btn comment-btn--sm" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</button>
+                {c.selected_text && (
+                  <div className="comment-manager__item-quote">
+                    &#8220;{c.selected_text}&#8221;
                   </div>
-                ) : (
-                  <button className="comment-btn comment-btn--sm" onClick={() => setReplyingTo(c.id)}>Reply</button>
                 )}
-                {c.status === 'open' ? (
+
+                <div className="comment-manager__item-body">{c.content}</div>
+
+                {/* Replies */}
+                {c.replies?.length > 0 && (
                   <>
-                    <button className="comment-btn comment-btn--sm comment-btn--resolve" onClick={() => handleResolve(c.id)}>Resolve</button>
-                    <button className="comment-btn comment-btn--sm comment-btn--dismiss" onClick={() => handleDismiss(c.id)}>Dismiss</button>
+                    <div className="comment-manager__replies">
+                      {c.replies.map(r => {
+                        const { dateShorthand, dateLonghand } = timeAgo(r.created_at);
+
+                        return (
+                          <div key={r.id} className="comment-manager__reply">
+                            <span className="comment-manager__reply-author">{r.user_name}</span>
+                            <span className="comment-manager__reply-time" title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span>
+                            <div className="comment-manager__reply-body">{r.content}</div>
+                            {r.user_id && (
+                              <button className="comment-btn comment-btn--icon" onClick={() => handleDeleteReply(r.id, c.id)} title="Delete reply">&times;</button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="comment-manager__item-actions">
+                      {onNavigate && (
+                        <button className="comment-btn comment-btn--sm" onClick={() => onNavigate(c)}>Go to</button>
+                      )}
+                      {replyingTo === c.id ? (
+                        <div className="comment-manager__reply-form">
+                          <textarea
+                            className="comment-textarea"
+                            value={replyText}
+                            onChange={e => setReplyText(e.target.value)}
+                            placeholder="Write a reply..."
+                            rows={2}
+                            />
+                          <button className="comment-btn comment-btn--primary comment-btn--sm" onClick={() => handleReply(c.id)} disabled={!replyText.trim()}>Reply</button>
+                          <button className="comment-btn comment-btn--sm" onClick={() => { setReplyingTo(null); setReplyText(''); }}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button className="comment-btn comment-btn--sm" onClick={() => setReplyingTo(c.id)}>Reply</button>
+                      )}
+                      {c.status === 'open' ? (
+                        <>
+                          <button className="comment-btn comment-btn--sm comment-btn--resolve" onClick={() => handleResolve(c.id)}>Resolve</button>
+                          <button className="comment-btn comment-btn--sm comment-btn--dismiss" onClick={() => handleDismiss(c.id)}>Dismiss</button>
+                        </>
+                      ) : (
+                        <button className="comment-btn comment-btn--sm" onClick={() => handleReopen(c.id)}>Reopen</button>
+                      )}
+                      <button className="comment-btn comment-btn--sm comment-btn--delete" onClick={() => handleDelete(c.id)}>Delete</button>
+                    </div>
                   </>
-                ) : (
-                  <button className="comment-btn comment-btn--sm" onClick={() => handleReopen(c.id)}>Reopen</button>
-                )}
-                <button className="comment-btn comment-btn--sm comment-btn--delete" onClick={() => handleDelete(c.id)}>Delete</button>
+                )};
               </div>
-            </div>
-          ))}
-        </div>
+            );
+          })} 
+        </div>  
       )}
     </div>
   );

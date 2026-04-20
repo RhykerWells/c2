@@ -255,20 +255,24 @@ function RepoList({ onSelect }) {
       </div>
       {loading && repos.length === 0 && <p className="text-muted gh-loading">Loading repositories...</p>}
       <div className="gh-repo-list__items">
-        {repos.map(repo => (
-          <button key={repo.id} className="gh-repo-card" onClick={() => onSelect(repo)}>
-            <div className="gh-repo-card__header">
-              <RepoIcon />
-              <span className="gh-repo-card__name">{repo.full_name}</span>
-              {repo.private && <LockIcon />}
-            </div>
-            {repo.description && <p className="gh-repo-card__desc">{repo.description}</p>}
-            <div className="gh-repo-card__meta">
-              {repo.language && <span className="gh-repo-card__lang">{repo.language}</span>}
-              <span className="text-muted">{timeAgo(repo.updated_at)}</span>
-            </div>
-          </button>
-        ))}
+        {repos.map(repo => {
+          const { dateShorthand: updatedShorthand, dateLonghand: updatedLonghand } = timeAgo(repo.updated_at);
+          
+          return (
+            <button key={repo.id} className="gh-repo-card" onClick={() => onSelect(repo)}>
+              <div className="gh-repo-card__header">
+                <RepoIcon />
+                <span className="gh-repo-card__name">{repo.full_name}</span>
+                {repo.private && <LockIcon />}
+              </div>
+              {repo.description && <p className="gh-repo-card__desc">{repo.description}</p>}
+              <div className="gh-repo-card__meta">
+                {repo.language && <span className="gh-repo-card__lang">{repo.language}</span>}
+                <span className="text-muted"><span title={updatedLonghand}  style={{ cursor: 'pointer'}}>{updatedShorthand}</span></span>
+              </div>
+            </button>
+          )
+        })}
       </div>
       {repos.length >= page * 30 && (
         <button className="btn btn-ghost btn-sm gh-load-more" onClick={() => {
@@ -1472,107 +1476,111 @@ function CommitHistory({ owner, repo, filePath, branch, branches, onClose, fullW
                 <CommitIcon />
                 <span>{group.date}</span>
               </div>
-              {group.commits.map(c => (
-                <div key={c.sha} className={`gh-history__commit${expandedSha === c.sha ? ' expanded' : ''}`}>
-                  <button className="gh-history__commit-row" onClick={() => handleToggleDetail(c.sha)}>
-                    <div className="gh-history__commit-main">
-                      {c.author.avatar_url && (
-                        <img src={c.author.avatar_url} alt="" className="gh-history__avatar" />
-                      )}
-                      <div className="gh-history__commit-info">
-                        <span className="gh-history__commit-msg">{c.message.split('\n')[0]}</span>
-                        <span className="gh-history__commit-meta">
-                          <strong>{c.author.login || c.author.name}</strong>
-                          {' · '}
-                          {timeAgo(c.date)}
-                        </span>
+              {group.commits.map(c => {
+                const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(c.date);
+
+                return (
+                  <div key={c.sha} className={`gh-history__commit${expandedSha === c.sha ? ' expanded' : ''}`}>
+                    <button className="gh-history__commit-row" onClick={() => handleToggleDetail(c.sha)}>
+                      <div className="gh-history__commit-main">
+                        {c.author.avatar_url && (
+                          <img src={c.author.avatar_url} alt="" className="gh-history__avatar" />
+                        )}
+                        <div className="gh-history__commit-info">
+                          <span className="gh-history__commit-msg">{c.message.split('\n')[0]}</span>
+                          <span className="gh-history__commit-meta">
+                            <strong>{c.author.login || c.author.name}</strong>
+                            {' · '}
+                            <span title={createdLonghand}  style={{ cursor: 'pointer'}}>{createdShorthand}</span>
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="gh-history__commit-sha">
-                      <code>{c.sha.slice(0, 7)}</code>
-                    </div>
-                  </button>
+                      <div className="gh-history__commit-sha">
+                        <code>{c.sha.slice(0, 7)}</code>
+                      </div>
+                    </button>
 
-                  {/* Expanded detail */}
-                  {expandedSha === c.sha && (
-                    <div className="gh-history__detail">
-                      {detailLoading ? (
-                        <p className="text-muted gh-loading">Loading details...</p>
-                      ) : commitDetail ? (
-                        <>
-                          {/* Full commit message */}
-                          {commitDetail.message.includes('\n') && (
-                            <pre className="gh-history__full-msg">{commitDetail.message}</pre>
-                          )}
-
-                          {/* Stats summary */}
-                          {commitDetail.stats && (
-                            <div className="gh-history__stats">
-                              <span className="gh-history__stat-files">{commitDetail.files.length} file{commitDetail.files.length !== 1 ? 's' : ''} changed</span>
-                              <span className="gh-history__stat-add">+{commitDetail.stats.additions}</span>
-                              <span className="gh-history__stat-del">-{commitDetail.stats.deletions}</span>
-                            </div>
-                          )}
-
-                          {/* Changed files (compact list) */}
-                          {commitDetail.files && commitDetail.files.length > 0 && showDiffSha !== c.sha && (
-                            <div className="gh-history__files">
-                              {commitDetail.files.map(f => (
-                                <div
-                                  key={f.filename}
-                                  className={`gh-history__file-row${onFileClick ? ' clickable' : ''}`}
-                                  onClick={onFileClick ? () => onFileClick(f.filename) : undefined}
-                                  role={onFileClick ? 'button' : undefined}
-                                >
-                                  <span className={`gh-history__file-status gh-history__file-status--${f.status}`}>
-                                    {f.status === 'added' ? 'A' : f.status === 'removed' ? 'D' : f.status === 'renamed' ? 'R' : 'M'}
-                                  </span>
-                                  <span className="gh-history__file-name">{f.filename}</span>
-                                  <span className="gh-history__file-diff">
-                                    {f.additions > 0 && <span className="gh-history__stat-add">+{f.additions}</span>}
-                                    {f.deletions > 0 && <span className="gh-history__stat-del">-{f.deletions}</span>}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="gh-history__detail-actions">
-                            {commitDetail.files && commitDetail.files.some(f => f.patch) && (
-                              <button
-                                className={`btn btn-ghost btn-sm${showDiffSha === c.sha ? ' active' : ''}`}
-                                onClick={() => setShowDiffSha(showDiffSha === c.sha ? null : c.sha)}
-                              >
-                                <DiffAddIcon /> {showDiffSha === c.sha ? 'Hide Diff' : 'View Diff'}
-                              </button>
+                    {/* Expanded detail */}
+                    {expandedSha === c.sha && (
+                      <div className="gh-history__detail">
+                        {detailLoading ? (
+                          <p className="text-muted gh-loading">Loading details...</p>
+                        ) : commitDetail ? (
+                          <>
+                            {/* Full commit message */}
+                            {commitDetail.message.includes('\n') && (
+                              <pre className="gh-history__full-msg">{commitDetail.message}</pre>
                             )}
-                            <a href={commitDetail.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
-                              View on GitHub
-                            </a>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => navigator.clipboard.writeText(commitDetail.sha)}
-                              title="Copy full SHA"
-                            >
-                              Copy SHA
-                            </button>
-                          </div>
 
-                          {/* Full diff view */}
-                          {showDiffSha === c.sha && commitDetail.files && (
-                            <DiffPanel
-                              files={commitDetail.files}
-                              commitSha={commitDetail.sha}
-                              title={c.message.split('\n')[0]}
-                              onClose={() => setShowDiffSha(null)}
-                            />
-                          )}
-                        </>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              ))}
+                            {/* Stats summary */}
+                            {commitDetail.stats && (
+                              <div className="gh-history__stats">
+                                <span className="gh-history__stat-files">{commitDetail.files.length} file{commitDetail.files.length !== 1 ? 's' : ''} changed</span>
+                                <span className="gh-history__stat-add">+{commitDetail.stats.additions}</span>
+                                <span className="gh-history__stat-del">-{commitDetail.stats.deletions}</span>
+                              </div>
+                            )}
+
+                            {/* Changed files (compact list) */}
+                            {commitDetail.files && commitDetail.files.length > 0 && showDiffSha !== c.sha && (
+                              <div className="gh-history__files">
+                                {commitDetail.files.map(f => (
+                                  <div
+                                    key={f.filename}
+                                    className={`gh-history__file-row${onFileClick ? ' clickable' : ''}`}
+                                    onClick={onFileClick ? () => onFileClick(f.filename) : undefined}
+                                    role={onFileClick ? 'button' : undefined}
+                                  >
+                                    <span className={`gh-history__file-status gh-history__file-status--${f.status}`}>
+                                      {f.status === 'added' ? 'A' : f.status === 'removed' ? 'D' : f.status === 'renamed' ? 'R' : 'M'}
+                                    </span>
+                                    <span className="gh-history__file-name">{f.filename}</span>
+                                    <span className="gh-history__file-diff">
+                                      {f.additions > 0 && <span className="gh-history__stat-add">+{f.additions}</span>}
+                                      {f.deletions > 0 && <span className="gh-history__stat-del">-{f.deletions}</span>}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            <div className="gh-history__detail-actions">
+                              {commitDetail.files && commitDetail.files.some(f => f.patch) && (
+                                <button
+                                  className={`btn btn-ghost btn-sm${showDiffSha === c.sha ? ' active' : ''}`}
+                                  onClick={() => setShowDiffSha(showDiffSha === c.sha ? null : c.sha)}
+                                >
+                                  <DiffAddIcon /> {showDiffSha === c.sha ? 'Hide Diff' : 'View Diff'}
+                                </button>
+                              )}
+                              <a href={commitDetail.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
+                                View on GitHub
+                              </a>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => navigator.clipboard.writeText(commitDetail.sha)}
+                                title="Copy full SHA"
+                              >
+                                Copy SHA
+                              </button>
+                            </div>
+
+                            {/* Full diff view */}
+                            {showDiffSha === c.sha && commitDetail.files && (
+                              <DiffPanel
+                                files={commitDetail.files}
+                                commitSha={commitDetail.sha}
+                                title={c.message.split('\n')[0]}
+                                onClose={() => setShowDiffSha(null)}
+                              />
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))
         )}
@@ -2107,25 +2115,29 @@ function RepoActivityView({ owner, repo, repoInfo, branch, branches, onNewFile, 
             <p className="text-muted gh-loading">No {pullsState === 'all' ? '' : pullsState} pull requests</p>
           ) : (
             <div className="gh-pr-list__items">
-              {pulls.map(pr => (
-                <button key={pr.number} className="gh-pr-card" onClick={() => setSelectedPR(pr)}>
-                  <div className="gh-pr-card__header">
-                    <PullRequestIcon />
-                    <span className="gh-pr-card__title">{pr.title}</span>
-                    <span className={`gh-pr-badge gh-pr-badge--${pr.state}`}>{pr.state}</span>
-                  </div>
-                  <div className="gh-pr-card__meta">
-                    <span>#{pr.number}</span>
-                    <span>·</span>
-                    <span>{pr.head.ref} → {pr.base.ref}</span>
-                    <span>·</span>
-                    {pr.user.avatar_url && <img src={pr.user.avatar_url} alt="" className="gh-history__avatar" style={{ width: 16, height: 16 }} />}
-                    <span>{pr.user.login}</span>
-                    <span>·</span>
-                    <span className="text-muted">{timeAgo(pr.updated_at)}</span>
-                  </div>
-                </button>
-              ))}
+              {pulls.map(pr => {
+                const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(pr.updated_at);
+
+                return (
+                  <button key={pr.number} className="gh-pr-card" onClick={() => setSelectedPR(pr)}>
+                    <div className="gh-pr-card__header">
+                      <PullRequestIcon />
+                      <span className="gh-pr-card__title">{pr.title}</span>
+                      <span className={`gh-pr-badge gh-pr-badge--${pr.state}`}>{pr.state}</span>
+                    </div>
+                    <div className="gh-pr-card__meta">
+                      <span>#{pr.number}</span>
+                      <span>·</span>
+                      <span>{pr.head.ref} → {pr.base.ref}</span>
+                      <span>·</span>
+                      {pr.user.avatar_url && <img src={pr.user.avatar_url} alt="" className="gh-history__avatar" style={{ width: 16, height: 16 }} />}
+                      <span>{pr.user.login}</span>
+                      <span>·</span>
+                      <span className="text-muted"><span title={createdLonghand}  style={{ cursor: 'pointer'}}>{createdShorthand}</span></span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
