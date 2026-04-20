@@ -67,12 +67,12 @@ router.post('/create-account', asyncHandler(async (req, res) => {
   }
 
   // Validate invitation token
-  const [invitation] = await c2_query(
+  const [userInvitation] = await c2_query(
     `SELECT id, email AS invite_email, accepted, expires_at FROM user_invitations WHERE token = ? LIMIT 1`,
     [inviteToken]
   );
 
-  if (!invitation || invitation.accepted || invitation.expires_at <= new Date()) {
+  if (!userInvitation || userInvitation.accepted || userInvitation.expires_at <= new Date()) {
     return res.status(400).json({
       success: false,
       message: 'Invalid or expired invitation. Please request a new one from your administrator.'
@@ -80,7 +80,7 @@ router.post('/create-account', asyncHandler(async (req, res) => {
   }
 
   // Email must match the invitation
-  if (invitation.invite_email.toLowerCase() !== email.toLowerCase()) {
+  if (userInvitation.invite_email.toLowerCase() !== email.toLowerCase()) {
     return res.status(400).json({
       success: false,
       message: 'Email address must match the invitation'
@@ -145,7 +145,7 @@ router.post('/create-account', asyncHandler(async (req, res) => {
   // Mark invitation as accepted
   await c2_query(
     `UPDATE user_invitations SET accepted = TRUE WHERE id = ?`,
-    [invitation.id]
+    [userInvitation.id]
   );
 
   res.cookie('sessionToken', sessionToken, {
@@ -194,7 +194,7 @@ router.post('/setup', requireAuth, asyncHandler(async (req, res) => {
 
   const projResult = await c2_query(
     `INSERT INTO archives (name, squad_id, created_by, read_access, write_access)
-     VALUES (?, NULL, ?, JSON_ARRAY(?), JSON_ARRAY(?))`,
+    VALUES (?, NULL, ?, JSON_ARRAY(?), JSON_ARRAY(?))`,
     [archiveName.trim(), req.user.id, req.user.id, req.user.id]
   );
 

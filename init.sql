@@ -113,6 +113,30 @@ CREATE TABLE user_invitations (
   INDEX (expires_at)
 ) ENGINE=InnoDB;
 
+CREATE TABLE global_invitations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code CHAR(6) NOT NULL UNIQUE,
+  invited_by INT NOT NULL,
+  max_uses INT DEFAULT NULL,
+  uses INT DEFAULT 0,
+  expires_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  revoked BOOLEAN DEFAULT FALSE NOT NULL,
+  FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX (code),
+  INDEX (expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE global_invitations_tracked (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  invitation_id INT NOT NULL,
+  user_id INT NOT NULL,
+  FOREIGN KEY (invitation_id) REFERENCES global_invitations(id) ON DELETE CASCADE,
+  fOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX (invitation_id),
+  INDEX (user_id)
+) ENGINE=InnoDB;
+
 CREATE TABLE squads (
   id INT AUTO_INCREMENT PRIMARY KEY,
   workspace_id INT,
