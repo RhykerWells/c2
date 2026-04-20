@@ -201,10 +201,10 @@ router.delete('/admin/users/:id', requireAuth, requireAdmin, asyncHandler(async 
 // ─── User invitation (admin only) ───────────────────────────
 
 /**
- * GET /api/admin/invitations
+ * GET /api/admin/invitations/users
  * List all pending user invitations (admin only).
  */
-router.get('/admin/invitations', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+router.get('/admin/invitations/users', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const invitations = await c2_query(
     `SELECT ui.id, ui.email, ui.accepted, ui.created_at, ui.expires_at,
             u.name AS invited_by_name
@@ -216,10 +216,10 @@ router.get('/admin/invitations', requireAuth, requireAdmin, asyncHandler(async (
 }));
 
 /**
- * POST /api/admin/invitations
+ * POST /api/admin/invitations/user
  * Invite a new user by email (admin only). Sends a signup link.
  */
-router.post('/admin/invitations', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+router.post('/admin/invitations/user', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { email } = req.body;
   if (!email?.trim() || !isValidEmail(email.trim())) {
     return res.status(400).json({ success: false, message: 'A valid email address is required' });
@@ -276,10 +276,10 @@ router.post('/admin/invitations', requireAuth, requireAdmin, asyncHandler(async 
 }));
 
 /**
- * DELETE /api/admin/invitations/:id
+ * DELETE /api/admin/invitations/users/:id
  * Cancel/revoke a user invitation (admin only).
  */
-router.delete('/admin/invitations/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+router.delete('/admin/invitations/users/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!isValidId(id)) {
     return res.status(400).json({ success: false, message: 'Invalid invitation ID' });
@@ -296,16 +296,16 @@ router.delete('/admin/invitations/:id', requireAuth, requireAdmin, asyncHandler(
 router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
   const { token } = req.params;
 
-  const [invitation] = await c2_query(
+  const [userInvitation] = await c2_query(
     `SELECT id, email, accepted, expires_at FROM user_invitations WHERE token = ? LIMIT 1`,
     [token]
   );
 
-  if (!invitation || invitation.accepted || invitation.expires_at <= new Date()) {
+  if (!userInvitation || userInvitation.accepted || userInvitation.expires_at <= new Date()) {
     return res.json({ valid: false, message: 'Invalid or expired invitation' });
   }
 
-  res.json({ valid: true, email: invitation.email });
+  res.json({ valid: true, email: userInvitation.email });
 }));
 
 // ─── User permissions management (admin only) ──────────────

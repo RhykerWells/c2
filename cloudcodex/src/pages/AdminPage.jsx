@@ -21,9 +21,9 @@ import {
   fetchAdminUserPermissions,
   updateAdminUserPermissions,
   updateAdminUserAdmin,
-  fetchAdminInvitations,
-  createAdminInvitation,
-  deleteAdminInvitation,
+  fetchAdminUserInvitations,
+  createAdminUserInvitation,
+  deleteAdminUserInvitation,
   fetchAdminSquads,
   fetchAdminSquadMembers,
   updateAdminSquadMember,
@@ -208,7 +208,7 @@ function InviteUserModal({ onInvited }) {
     setSuccess(null);
     if (!email.trim()) { setError('Email address is required.'); return; }
     try {
-      const res = await createAdminInvitation(email);
+      const res = await createAdminUserInvitation(email);
       setSuccess(res.message);
       setEmail('');
       onInvited?.();
@@ -716,22 +716,22 @@ function SquadsPanel() {
 // ─── Invitations Panel ──────────────────────────────────────
 
 function InvitationsPanel() {
-  const [invitations, setInvitations] = useState([]);
+  const [userInvitations, setUserInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetchAdminInvitations();
-      setInvitations(res.invitations || []);
+      const res = await fetchAdminUserInvitations();
+      setUserInvitations(res.invitations || []);
     } catch { /* ignore */ }
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const handleRevoke = async (inv) => {
+  const handleRevokeUserInvitation = async (inv) => {
     try {
-      await deleteAdminInvitation(inv.id);
+      await deleteAdminUserInvitation(inv.id);
       load();
     } catch (e) {
       toastError(e.body?.message ?? 'Error revoking invitation.');
@@ -748,7 +748,7 @@ function InvitationsPanel() {
       </div>
       {loading ? (
         <p className="text-muted">Loading…</p>
-      ) : invitations.length === 0 ? (
+        ) : userInvitations.length === 0 ? (
         <p className="text-muted">No invitations sent yet.</p>
       ) : (
         <div className="admin-table-wrap">
@@ -764,7 +764,7 @@ function InvitationsPanel() {
               </tr>
             </thead>
             <tbody>
-              {invitations.map(inv => {
+                {userInvitations.map(inv => {
                 const expired = new Date(inv.expires_at) <= new Date();
                 const status = inv.accepted ? 'Accepted' : expired ? 'Expired' : 'Pending';
                 const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
@@ -781,7 +781,7 @@ function InvitationsPanel() {
                     <td><span title={expiresLonghand}  style={{ cursor: 'pointer'}}>{expiresShorthand}</span></td>
                     <td>
                       {!inv.accepted && !expired && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => handleRevoke(inv)}>Revoke</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => handleRevokeUserInvitation(inv)}>Revoke</button>
                       )}
                     </td>
                   </tr>

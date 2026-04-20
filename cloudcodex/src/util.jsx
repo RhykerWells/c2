@@ -212,9 +212,9 @@ export const deleteAdminUser = (id) => apiFetch('DELETE', `/api/admin/users/${id
 export const fetchAdminUserPermissions = (id) => apiFetch('GET', `/api/admin/users/${id}/permissions`);
 export const updateAdminUserPermissions = (id, perms) => apiFetch('PUT', `/api/admin/users/${id}/permissions`, perms);
 export const updateAdminUserAdmin = (id, is_admin) => apiFetch('PUT', `/api/admin/users/${id}/admin`, { is_admin });
-export const fetchAdminInvitations = () => apiFetch('GET', '/api/admin/invitations');
-export const createAdminInvitation = (email) => apiFetch('POST', '/api/admin/invitations', { email });
-export const deleteAdminInvitation = (id) => apiFetch('DELETE', `/api/admin/invitations/${id}`);
+export const fetchAdminUserInvitations = () => apiFetch('GET', '/api/admin/invitations/users');
+export const createAdminUserInvitation = (email) => apiFetch('POST', '/api/admin/invitations/user', { email });
+export const deleteAdminUserInvitation = (id) => apiFetch('DELETE', `/api/admin/invitations/users/${id}`);
 export const fetchAdminSquads = () => apiFetch('GET', '/api/admin/squads');
 export const fetchAdminSquadMembers = (id) => apiFetch('GET', `/api/admin/squads/${id}/members`);
 export const updateAdminSquadMember = (squadId, userId, updates) => apiFetch('PUT', `/api/admin/squads/${squadId}/members/${userId}`, updates);
