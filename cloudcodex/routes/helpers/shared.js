@@ -47,6 +47,40 @@ export function sanitizeHtml(html) {
 /** Default permission values for users without a row in the permissions table. */
 export const DEFAULT_PERMISSIONS = { create_squad: false, create_archive: false, create_log: true };
 
+export const DEFAULT_GLOBAL_SETTINGS = {
+};
+
+function parseSettingValue(value) {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+export async function getGlobalSettings() {
+  const rows = await c2_query(`SELECT name, value FROM global_settings`);
+  const settings = { ...DEFAULT_GLOBAL_SETTINGS };
+  for (const row of rows) {
+    settings[row.name] = parseSettingValue(row.value);
+  }
+  return settings;
+}
+
+export async function setGlobalSettings(settings = {}) {
+  const updates = Object.entries(settings).filter(([, value]) => value !== undefined);
+  for (const [name, value] of updates) {
+    await c2_query(
+      `INSERT INTO global_settings (name, value)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE value = VALUES(value)`,
+      [name, JSON.stringify(value)]
+    );
+  }
+}
+
 // --- Log-level access checks ---
 
 /**

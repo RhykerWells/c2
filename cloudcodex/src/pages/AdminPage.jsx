@@ -11,6 +11,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import StdLayout from '../page_layouts/Std_Layout';
 import {
+  fetchAdminSettings,
+  updateAdminSettings,
   fetchAdminStatus,
   fetchAdminStats,
   fetchAdminWorkspaces,
@@ -672,6 +674,45 @@ function UsersPanel() {
   );
 }
 
+function SettingsPanel({ settings, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+  }, [settings]);
+
+  const handleSave = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await updateAdminSettings({ ...settings });
+      onSaved?.(res.settings);
+      showToast('Module settings saved', 'success');
+    } catch (e) {
+      setError(e.body?.message ?? 'Error saving settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="admin-panel">
+      <div className="admin-panel__header">
+        <h2>Settings</h2>
+        <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+          Save Settings
+        </button>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      <div className="admin-panel__body">
+        <h3>General settings</h3>
+        <h3>Module settings</h3>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Squads Panel ───────────────────────────────────────────
 
 function SquadsPanel() {
@@ -1002,16 +1043,24 @@ const NAV_ITEMS = [
   { key: 'workspaces', label: 'Workspaces', icon: '🏢' },
   { key: 'squads', label: 'Squads', icon: '👥' },
   { key: 'invitations', label: 'Invitations', icon: '✉' },
+  { key: 'settings', label: 'Modules', icon: '⚙' },
 ];
 
 export default function AdminPage() {
   const [activePanel, setActivePanel] = useState('overview');
   const [authorized, setAuthorized] = useState(null);
+  const [adminSettings, setAdminSettings] = useState();
 
   useEffect(() => {
     fetchAdminStatus()
       .then(res => setAuthorized(res.isAdmin === true))
       .catch(() => setAuthorized(false));
+  }, []);
+
+  useEffect(() => {
+    fetchAdminSettings()
+      .then(res => setAdminSettings(res.settings || { userInvitesEnabled: true, globalInvitesEnabled: true }))
+      .catch(() => {});
   }, []);
 
   if (authorized === null) {
@@ -1020,6 +1069,10 @@ export default function AdminPage() {
   if (!authorized) {
     return <StdLayout><div className="admin-dashboard"><h1>Access Denied</h1><p>You do not have admin privileges.</p></div></StdLayout>;
   }
+
+  const handleSettingsSaved = (settings) => {
+    setAdminSettings(settings);
+  };
 
   return (
     <StdLayout>
@@ -1045,6 +1098,7 @@ export default function AdminPage() {
           {activePanel === 'workspaces' && <WorkspacesPanel />}
           {activePanel === 'squads' && <SquadsPanel />}
           {activePanel === 'invitations' && <InvitationsPanel />}
+          {activePanel === 'settings' && <SettingsPanel settings={adminSettings} onSaved={handleSettingsSaved}/>}
         </main>
       </div>
     </StdLayout>

@@ -11,7 +11,7 @@ import crypto from 'crypto';
 import { c2_query } from '../mysql_connect.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { sendEmail } from '../services/email.js';
-import { isValidId, asyncHandler, errorHandler, BCRYPT_ROUNDS, APP_URL, isValidEmail, createDefaultPermissions, addSquadOwnerMember } from './helpers/shared.js';
+import { isValidId, asyncHandler, errorHandler, BCRYPT_ROUNDS, APP_URL, isValidEmail, createDefaultPermissions, addSquadOwnerMember, getGlobalSettings, setGlobalSettings } from './helpers/shared.js';
 import { getAllPresence, getActiveDocCount } from '../services/collab.js';
 
 const router = express.Router();
@@ -63,6 +63,32 @@ export async function ensureAdminUser() {
  */
 router.get('/admin/status', requireAuth, asyncHandler(async (req, res) => {
   res.json({ success: true, isAdmin: Boolean(req.user.is_admin) });
+}));
+
+/**
+ * GET /api/admin/settings
+ * Read system-wide feature settings for the admin console.
+ */
+router.get('/admin/settings', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const settings = await getGlobalSettings();
+  res.json({ success: true, settings });
+}));
+
+/**
+ * PUT /api/admin/settings
+ * Update system-wide admin feature flags.
+ */
+router.put('/admin/settings', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const { } = req.body;
+  const updates = {};
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ success: false, message: 'No settings provided' });
+  }
+
+  await setGlobalSettings(updates);
+  const settings = await getGlobalSettings();
+  res.json({ success: true, settings });
 }));
 
 // ─── Workspace management (admin only) ───────────────────
