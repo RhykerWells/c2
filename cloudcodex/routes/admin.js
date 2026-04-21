@@ -230,6 +230,11 @@ router.delete('/admin/users/:id', requireAuth, requireAdmin, asyncHandler(async 
  * List all pending user invitations (admin only).
  */
 router.get('/admin/invitations/users', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const settings = await getGlobalSettings();
+  if (!settings.userInvitesEnabled) {
+    return res.status(403).json({ success: false, message: 'User invitations are disabled' });
+  }
+
   const invitations = await c2_query(
     `SELECT ui.id, ui.email, ui.accepted, ui.created_at, ui.expires_at,
             u.name AS invited_by_name
@@ -245,6 +250,11 @@ router.get('/admin/invitations/users', requireAuth, requireAdmin, asyncHandler(a
  * Invite a new user by email (admin only). Sends a signup link.
  */
 router.post('/admin/invitations/user', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const settings = await getGlobalSettings();
+  if (!settings.userInvitesEnabled) {
+    return res.status(403).json({ success: false, message: 'User invitations are disabled' });
+  }
+
   const { email } = req.body;
   if (!email?.trim() || !isValidEmail(email.trim())) {
     return res.status(400).json({ success: false, message: 'A valid email address is required' });
@@ -326,7 +336,16 @@ router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid token' });
   }
 
+  const settings = await getGlobalSettings();
   const isGlobal = token.length === 6;
+
+  if (isGlobal && !settings.globalInvitesEnabled) {
+    return res.status(403).json({ valid: false, message: 'Global invitations are currently disabled' });
+  }
+
+  if (!isGlobal && !settings.userInvitesEnabled) {
+    return res.status(403).json({ valid: false, message: 'User invitations are currently disabled' });
+  }
 
   if (isGlobal) {
     const [globalInvitation] = await c2_query(
@@ -336,7 +355,7 @@ router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
 
     if (!globalInvitation || (globalInvitation.max_uses > 0 && (globalInvitation.uses ?? 0) >= globalInvitation.max_uses) ||
         (globalInvitation.expires_at && new Date(globalInvitation.expires_at) <= new Date())) {
-      return res.json({ valid: false, message: 'Invalid or expired invitation' });
+      return res.status(400).json({ valid: false, message: 'Invalid or expired invitation' });
     }
 
     res.json({ valid: true });
@@ -346,10 +365,10 @@ router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
       [token]
     );
     if (!userInvitation || userInvitation.accepted || userInvitation.expires_at <= new Date()) {
-      return res.json({ valid: false, message: 'Invalid or expired invitation' });
+      return res.status(400).json({ valid: false, message: 'Invalid or expired invitation' });
     }
 
-    res.json({ valid: true, email: userInvitation.email });
+    res.status(200).json({ valid: true, email: userInvitation.email });
   }
 }));
 
@@ -360,6 +379,11 @@ router.get('/invite/validate/:token', asyncHandler(async (req, res) => {
  * List all global invitations (admin only).
  */
 router.get('/admin/invitations/global', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const settings = await getGlobalSettings();
+  if (!settings.globalInvitesEnabled) {
+    return res.status(403).json({ success: false, message: 'Global invitations are disabled' });
+  }
+
   const invitations = await c2_query(
     `SELECT gi.id, gi.code, gi.max_uses, gi.uses, gi.expires_at, gi.created_at, gi.revoked,
             u.name as invited_by_name
@@ -376,6 +400,11 @@ router.get('/admin/invitations/global', requireAuth, requireAdmin, asyncHandler(
  * Create a new global invitation.
  */
 router.post('/admin/invitations/global', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const settings = await getGlobalSettings();
+  if (!settings.globalInvitesEnabled) {
+    return res.status(403).json({ success: false, message: 'Global invitations are disabled' });
+  }
+
   const { expiry, maxUses } = req.body;
 
   const expiryOptionsMinutes = [0, 30, 60, 360, 720, 1440, 10080];
