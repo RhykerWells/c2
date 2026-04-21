@@ -66,6 +66,15 @@ router.post('/create-account', asyncHandler(async (req, res) => {
     });
   }
 
+  const settings = await getSystemSettings();
+  const isGlobal = inviteToken.length === 6;
+  if (isGlobal && !settings.globalInvitesEnabled) {
+    return res.status(403).json({ success: false, message: 'Global invitations are currently disabled' });
+  }
+  if (!isGlobal && !settings.userInvitesEnabled) {
+    return res.status(403).json({ success: false, message: 'User invitations are currently disabled' });
+  }
+
   // Validate invitation token
   const [userInvitation] = await c2_query(
     `SELECT id, email AS invite_email, accepted, expires_at FROM user_invitations WHERE token = ? LIMIT 1`,
@@ -357,7 +366,10 @@ router.post('/login', asyncHandler(async (req, res) => {
         });
       } catch (err) {
         console.error('Failed to send 2FA code email:', err);
-        return res.status(500).json({ success: false, message: 'Failed to send 2FA code email.' });
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to send the 2FA verification email. Please try again later.',
+        });
       }
     }
 
