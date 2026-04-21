@@ -35,6 +35,7 @@ import {
   destroyModal,
   timeAgo,
 } from '../util';
+import { showToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { toastError } from '../components/Toast';
 
@@ -577,7 +578,7 @@ function SettingsPanel() {
       await updateAdminSettings(adminSettings);
       showToast('Module settings saved', 'success');
     } catch (e) {
-      setError(e.body?.message ?? 'Error saving settings.');
+      showToast(e.body?.message ?? 'Error saving settings.');
     } finally {
       setSaving(false);
     }
