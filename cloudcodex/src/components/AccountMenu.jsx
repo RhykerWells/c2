@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  getSessStorage, apiFetch, getSessionTokenFromCookie, showModal, destroyModal
+  getSessStorage, apiFetch, getSessionTokenFromCookie, showModal, destroyModal, attemptAutoLogin
 } from '../util';
 import { applyPrefsToDOM, loadUserPrefs, saveUserPrefs, ACCENT_COLORS, FONT_SIZES, DENSITIES } from '../userPrefs';
 
@@ -21,13 +21,26 @@ export function AvatarUploadPanel() {
   const [status, setStatus] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Resolve user from sessionStorage or try to restore session if missing
   const userId = getSessStorage('currentUser')?.id;
 
+  async function ensureUser() {
+    const cached = getSessStorage('currentUser');
+    if (cached) return cached;
+    try {
+      const restored = await attemptAutoLogin();
+      return restored;
+    } catch {
+      return null;
+    }
+  }
+
   useEffect(() => {
-    if (!userId) return;
     (async () => {
       try {
-        const res = await apiFetch('POST', '/api/get-user', { userId, token: getSessionTokenFromCookie() });
+        const u = userId ? { id: userId } : await ensureUser();
+        if (!u?.id) return;
+        const res = await apiFetch('POST', '/api/get-user', { userId: u.id, token: getSessionTokenFromCookie() });
         if (res.success && res.user.avatar_url) {
           setAvatarUrl(res.user.avatar_url);
         }
@@ -37,7 +50,9 @@ export function AvatarUploadPanel() {
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file || !userId) return;
+    if (!file) return;
+    const u = userId ? { id: userId } : await ensureUser();
+    if (!u?.id) return;
 
     // Client-side validation
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -57,7 +72,7 @@ export function AvatarUploadPanel() {
       formData.append('file', file);
 
       const token = getSessionTokenFromCookie();
-      const response = await fetch(`/api/users/${userId}/avatar`, {
+      const response = await fetch(`/api/users/${u.id}/avatar`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData,
@@ -84,10 +99,11 @@ export function AvatarUploadPanel() {
   };
 
   const handleRemove = async () => {
-    if (!userId) return;
+    const u = userId ? { id: userId } : await ensureUser();
+    if (!u?.id) return;
     setStatus(null);
     try {
-      await apiFetch('DELETE', `/api/users/${userId}/avatar`);
+      await apiFetch('DELETE', `/api/users/${u.id}/avatar`);
       setAvatarUrl(null);
       setStatus({ type: 'success', message: 'Profile picture removed.' });
 
@@ -144,13 +160,14 @@ export function AvatarUploadPanel() {
 export function AccountInfoUpdatePanel() {
   const [fields, setFields] = useState({ name: '', email: '' });
   const [status, setStatus] = useState(null);
-
   useEffect(() => {
     const loadUser = async () => {
-      const userId = getSessStorage('currentUser')?.id;
-      if (!userId) { setStatus({ type: 'error', message: 'Not authenticated.' }); return; }
       try {
-        const res = await apiFetch('POST', '/api/get-user', { userId, token: getSessionTokenFromCookie() });
+        let u = getSessStorage('currentUser');
+        if (!u) u = await attemptAutoLogin();
+        if (!u?.id) { setStatus({ type: 'error', message: 'Not authenticated.' }); return; }
+
+        const res = await apiFetch('POST', '/api/get-user', { userId: u.id, token: getSessionTokenFromCookie() });
         if (res.success) {
           setFields(f => ({ ...f, name: res.user.name ?? '', email: res.user.email ?? '' }));
         }
@@ -166,12 +183,12 @@ export function AccountInfoUpdatePanel() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus(null);
-
-    const userId = getSessStorage('currentUser')?.id;
-    if (!userId) { setStatus({ type: 'error', message: 'Not authenticated.' }); return; }
+    let u = getSessStorage('currentUser');
+    if (!u) u = await attemptAutoLogin();
+    if (!u?.id) { setStatus({ type: 'error', message: 'Not authenticated.' }); return; }
 
     try {
-      await apiFetch('POST', '/api/update-account', { userId, name: fields.name, email: fields.email });
+      await apiFetch('POST', '/api/update-account', { userId: u.id, name: fields.name, email: fields.email });
       setStatus({ type: 'success', message: 'Account updated successfully.' });
     } catch (e) {
       setStatus({ type: 'error', message: `Error updating account: ${e.body?.message ?? e.message}` });
