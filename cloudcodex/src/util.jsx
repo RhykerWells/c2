@@ -223,6 +223,7 @@ export const createAdminWorkspace = (name, ownerEmail, { squadName, archiveName 
 export const deleteAdminWorkspace = (id) => apiFetch('DELETE', `/api/admin/workspaces/${id}`);
 export const fetchAdminUsers = () => apiFetch('GET', '/api/admin/users');
 export const deleteAdminUser = (id) => apiFetch('DELETE', `/api/admin/users/${id}`);
+export const resetAdminUserPassword = (id) => apiFetch('POST', `/api/admin/users/${id}/password-reset`);
 export const fetchAdminUserPermissions = (id) => apiFetch('GET', `/api/admin/users/${id}/permissions`);
 export const updateAdminUserPermissions = (id, perms) => apiFetch('PUT', `/api/admin/users/${id}/permissions`, perms);
 export const updateAdminUserAdmin = (id, is_admin) => apiFetch('PUT', `/api/admin/users/${id}/admin`, { is_admin });

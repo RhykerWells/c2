@@ -223,6 +223,28 @@ router.delete('/admin/users/:id', requireAuth, requireAdmin, asyncHandler(async 
   res.json({ success: true });
 }));
 
+
+/**
+ * POST /api/admin/users/:id/password-reset
+ * Resets a users password to "password"
+ */
+router.post('/admin/users/:id/password-reset', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid user ID' });
+  }
+
+  const passwordHash = await bcrypt.hash("password", BCRYPT_ROUNDS);
+  await c2_query(`UPDATE users SET password_hash = ? WHERE id = ?`, [passwordHash, Number(id)]);
+
+  await c2_query('UPDATE users SET two_factor_method = "none" WHERE id = ?', [Number(id)]);
+
+  // Invalidate all sessions for this user so they must log in with the new password
+  await c2_query(`DELETE FROM sessions WHERE user_id = ?`, [Number(id)]);
+
+  res.json({ success: true, message: 'Password has been reset.' });
+}));
+
 // ─── User invitation (admin only) ───────────────────────────
 
 /**

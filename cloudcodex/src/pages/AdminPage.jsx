@@ -20,6 +20,7 @@ import {
   deleteAdminWorkspace,
   fetchAdminUsers,
   deleteAdminUser,
+  resetAdminUserPassword,
   fetchAdminUserPermissions,
   updateAdminUserPermissions,
   updateAdminUserAdmin,
@@ -588,6 +589,23 @@ function UsersPanel() {
     );
   };
 
+  const handleSetDefaultPass = (user) => {
+    showModal(
+      <ConfirmDialog
+        title={`Reset user "${user.name}"s password?`}
+        message={`This will reset their password to "password" and remove any 2fa method on the account.`}
+        confirmLabel="Reset"
+        danger
+        onConfirm={async () => {
+          await resetAdminUserPassword(user.id);
+          destroyModal();
+          load();
+          window.location.reload();
+        }}
+      />,
+    );
+  };
+
   const handleToggleAdmin = async (user) => {
     const newAdmin = !user.is_admin;
     showModal(
@@ -660,9 +678,12 @@ function UsersPanel() {
                           Permissions
                         </button>
                         {!u.is_admin && (
-                          <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(u)}>Delete</button>
+                          <>
+                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(u)}>Delete</button>
+                            <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleSetDefaultPass(u)}>Reset Password</button>
+                          </>
                         )}
-                      </div>
+                    </div>
                     </td>
                   </tr>
                 );
