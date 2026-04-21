@@ -3561,6 +3561,16 @@ body {
   background: var(--bg-main);
   color: var(--text-primary);
 }
+
+.totp-secret-input {
+  padding: 8px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+
 .totp-code-input:focus {
   outline: none;
   border-color: var(--brand-blue);
