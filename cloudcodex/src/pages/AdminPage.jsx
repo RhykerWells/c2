@@ -675,7 +675,7 @@ function UsersPanel() {
   );
 }
 
-function SettingsPanel({ settings, onSaved }) {
+function SettingsPanel({ settings, onPreviewChange, onSaved }) {
   const getSafeSettings = (s) => ({
     userInvitesEnabled: s.userInvitesEnabled ?? true,
     globalInvitesEnabled: s.globalInvitesEnabled ?? true,
@@ -699,7 +699,7 @@ function SettingsPanel({ settings, onSaved }) {
 
     setForm(next);
 
-    onSaved?.({
+    onPreviewChange?.({
       ...settings,
       userInvitesEnabled: next.userInvitesEnabled,
       globalInvitesEnabled: next.globalInvitesEnabled,
@@ -946,7 +946,7 @@ function SquadsPanel() {
 
 // ─── Invitations Panel ──────────────────────────────────────
 
-function InvitationsPanel({ userInvitesEnabled, globalInvitesEnabled }) {
+function InvitationsPanel({ userInvitesEnabled, globalInvitesEnabled, dbUserInvitesEnabled, dbGlobalInvitesEnabled }) {
   const [userInvitations, setUserInvitations] = useState([]);
   const [globalInvitations, setGlobalInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -979,7 +979,7 @@ function InvitationsPanel({ userInvitesEnabled, globalInvitesEnabled }) {
       await revokeAdminGlobalInvitation(inv.id);
       load();
     } catch (e) {
-      toastError(e.body?.message ?? 'Error revoking invitation.')
+      toastError(e.body?.message ?? 'Error revoking invitation.');
     }
   };
 
@@ -988,129 +988,148 @@ function InvitationsPanel({ userInvitesEnabled, globalInvitesEnabled }) {
       <div className="admin-panel">
         <div className="admin-panel__header">
           <h3>User Invitations</h3>
-          <button className="btn btn-primary btn-sm" disabled={!userInvitesEnabled} onClick={() => showModal(<InviteUserModal onInvited={load} />, 'modal-md')}>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={!(userInvitesEnabled && dbUserInvitesEnabled)}
+            onClick={() => showModal(<InviteUserModal onInvited={load} />, 'modal-md')}
+          >
             + Invite User
           </button>
         </div>
         {loading ? (
           <p className="text-muted">Loading…</p>
         ) : !userInvitesEnabled ? (
-          <p className="text-muted">The email invite system is disabled.</p>
-        ) : userInvitations.length === 0 ? (
-          <p className="text-muted">No invitations sent yet.</p>
+          <p className="text-danger">The email invite system is disabled.</p>
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>Status</th>
-                  <th>Invited By</th>
-                  <th>Sent</th>
-                  <th>Expires</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {userInvitations.map(inv => {
-                  const expired = new Date(inv.expires_at) <= new Date();
-                  const status = inv.accepted ? 'Accepted' : expired ? 'Expired' : 'Pending';
-                  const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
-                  const { dateShorthand: expiresShorthand, dateLonghand: expiresLonghand } = timeAgo(inv.expires_at);
-
-                  return (
-                    <tr key={inv.id}>
-                      <td>{inv.email}</td>
-                      <td>
-                        <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
-                      </td>
-                      <td>{inv.invited_by_name}</td>
-                      <td><span title={createdLonghand}  style={{ cursor: 'pointer'}}>{createdShorthand}</span></td>
-                      <td><span title={expiresLonghand}  style={{ cursor: 'pointer'}}>{expiresShorthand}</span></td>
-                      <td>
-                        {!inv.accepted && !expired && (
-                          <button className="btn btn-ghost btn-sm" onClick={() => handleRevokeUserInvitation(inv)}>Revoke</button>
-                        )}
-                      </td>
+          <>
+            {!dbUserInvitesEnabled && (
+              <p className="text-danger">User invitation creation is disabled until settings are saved.</p>
+            )}
+            {userInvitations.length === 0 ? (
+              <p className="text-muted">No invitations sent yet.</p>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Status</th>
+                      <th>Invited By</th>
+                      <th>Sent</th>
+                      <th>Expires</th>
+                      <th />
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {userInvitations.map(inv => {
+                      const expired = new Date(inv.expires_at) <= new Date();
+                      const status = inv.accepted ? 'Accepted' : expired ? 'Expired' : 'Pending';
+                      const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
+                      const { dateShorthand: expiresShorthand, dateLonghand: expiresLonghand } = timeAgo(inv.expires_at);
+
+                      return (
+                        <tr key={inv.id}>
+                          <td>{inv.email}</td>
+                          <td>
+                            <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
+                          </td>
+                          <td>{inv.invited_by_name}</td>
+                          <td><span title={createdLonghand} style={{ cursor: 'pointer' }}>{createdShorthand}</span></td>
+                          <td><span title={expiresLonghand} style={{ cursor: 'pointer' }}>{expiresShorthand}</span></td>
+                          <td>
+                            {!inv.accepted && !expired && (
+                              <button className="btn btn-ghost btn-sm" onClick={() => handleRevokeUserInvitation(inv)}>Revoke</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
+
       <div className="admin-panel">
         <div className="admin-panel__header">
           <h3>Global Invitations</h3>
-          <button className="btn btn-primary btn-sm" disabled={!globalInvitesEnabled} onClick={() => showModal(<InviteGlobalModal onCreated={load} />, 'modal-md')}>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={!(globalInvitesEnabled && dbGlobalInvitesEnabled)}
+            onClick={() => showModal(<InviteGlobalModal onCreated={load} />, 'modal-md')}
+          >
             + Create invite
           </button>
         </div>
         {loading ? (
           <p className="text-muted">Loading…</p>
         ) : !globalInvitesEnabled ? (
-          <p className="text-muted">The global invite system is disabled.</p>
-        ) : globalInvitations.length === 0 ? (
-          <p className="text-muted">No invitations sent yet.</p>
+          <p className="text-danger">The global invite system is disabled.</p>
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Status</th>
-                  <th>Invited By</th>
-                  <th>Max uses</th>
-                  <th>Uses</th>
-                  <th>Created</th>
-                  <th>Expires</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {globalInvitations.map(inv => {
-                  const exhausted = inv.max_uses !== null && inv.uses >= inv.max_uses;  
-                  const hasExpired = inv.expires_at && new Date(inv.expires_at) < new Date();
-                  const status = inv.revoked ? "Revoked" : hasExpired ? "Expired" : exhausted ? 'Exhausted' : 'Active';
-
-                  const { dateShorthand : createdShorthand, dateLonghand : createdLonghand } = timeAgo(inv.created_at);
-                  const { dateShorthand : expiresShorthand, dateLonghand : expiresLonghand } = timeAgo(inv.expires_at);
-                  return (
-                    <tr key={inv.id}>
-                      <td>{inv.code}</td>
-                      <td>
-                        <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
-                      </td>
-                      <td>{inv.invited_by_name}</td>
-                      <td>{inv.max_uses ?? '∞'}</td>
-                      <td>{inv.uses}</td>
-                      <td><span title={createdLonghand} style={{ cursor: 'pointer' }}>{createdShorthand}</span></td>
-                      <td>
-                        {hasExpired ? (
-                          <>
-                            <span title={expiresLonghand} style={{ cursor: 'pointer' }}>Expired {expiresShorthand}</span>
-                          </>
-                        ) : inv.expires_at ? (
-                          <span title={expiresLonghand} style={{ cursor: 'pointer' }}>{expiresShorthand}</span>
-                        ) : (
-                          "Never"
-                        )}
-                      </td>
-                      <td>
-                        {
-                          <button className="btn btn-ghost btn-sm" onClick={() => showModal(<InvitedUserModal onCreated={load} inviteID={inv.id}/>, 'modal-md')}>View invited users</button>
-                        }
-                        {!exhausted && !hasExpired && !inv.revoked && (
-                          <button style={{ marginLeft: 5 }} className="btn btn-ghost btn-sm" onClick={() => handleRevokeGlobalInvitation(inv)}>Revoke</button>
-                        )}
-                      </td>
+          <>
+            {!dbGlobalInvitesEnabled && (
+              <p className="text-danger">Global invite creation is disabled until settings are saved.</p>
+            )}
+            {globalInvitations.length === 0 ? (
+              <p className="text-muted">No invitations sent yet.</p>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Status</th>
+                      <th>Invited By</th>
+                      <th>Max uses</th>
+                      <th>Uses</th>
+                      <th>Created</th>
+                      <th>Expires</th>
+                      <th />
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {globalInvitations.map(inv => {
+                      const exhausted = inv.max_uses !== null && inv.uses >= inv.max_uses;
+                      const hasExpired = inv.expires_at && new Date(inv.expires_at) < new Date();
+                      const status = inv.revoked ? 'Revoked' : hasExpired ? 'Expired' : exhausted ? 'Exhausted' : 'Active';
+
+                      const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(inv.created_at);
+                      const { dateShorthand: expiresShorthand, dateLonghand: expiresLonghand } = timeAgo(inv.expires_at);
+                      return (
+                        <tr key={inv.id}>
+                          <td>{inv.code}</td>
+                          <td>
+                            <span className={`status-badge status-badge--${status.toLowerCase()}`}>{status}</span>
+                          </td>
+                          <td>{inv.invited_by_name}</td>
+                          <td>{inv.max_uses ?? '∞'}</td>
+                          <td>{inv.uses}</td>
+                          <td><span title={createdLonghand} style={{ cursor: 'pointer' }}>{createdShorthand}</span></td>
+                          <td>
+                            {hasExpired ? (
+                              <span title={expiresLonghand} style={{ cursor: 'pointer' }}>Expired {expiresShorthand}</span>
+                            ) : inv.expires_at ? (
+                              <span title={expiresLonghand} style={{ cursor: 'pointer' }}>{expiresShorthand}</span>
+                            ) : (
+                              'Never'
+                            )}
+                          </td>
+                          <td>
+                            <button className="btn btn-ghost btn-sm" onClick={() => showModal(<InvitedUserModal onCreated={load} inviteID={inv.id}/>, 'modal-md')}>View invited users</button>
+                            {!exhausted && !hasExpired && !inv.revoked && (
+                              <button style={{ marginLeft: 5 }} className="btn btn-ghost btn-sm" onClick={() => handleRevokeGlobalInvitation(inv)}>Revoke</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>
@@ -1138,7 +1157,8 @@ const DEFAULT_SETTINGS = {
 export default function AdminPage() {
   const [activePanel, setActivePanel] = useState('overview');
   const [authorized, setAuthorized] = useState(null);
-  const [adminSettings, setAdminSettings] = useState({ userInvitesEnabled: true, globalInvitesEnabled: true });
+  const [adminSettings, setAdminSettings] = useState(DEFAULT_SETTINGS);
+  const [pendingSettings, setPendingSettings] = useState(DEFAULT_SETTINGS);
 
   useEffect(() => {
     const load = async () => {
@@ -1150,6 +1170,7 @@ export default function AdminPage() {
         const loadedSettings = settingsRes.settings ?? DEFAULT_SETTINGS;
         setAuthorized(status.isAdmin === true);
         setAdminSettings(loadedSettings);
+        setPendingSettings(loadedSettings);
       } catch {
         setAuthorized(false);
       }
@@ -1157,7 +1178,7 @@ export default function AdminPage() {
     load();
   }, []);
 
-  const showInvitations = adminSettings.userInvitesEnabled || adminSettings.globalInvitesEnabled;
+  const showInvitations = pendingSettings.userInvitesEnabled || pendingSettings.globalInvitesEnabled;
 
   useEffect(() => {
     if (!showInvitations && activePanel === 'invitations') {
@@ -1178,8 +1199,13 @@ export default function AdminPage() {
     MODULES_NAV_ITEM
   ];
 
+  const handleSettingsPreview = (settings) => {
+    setPendingSettings((prev) => ({ ...prev, ...settings }));
+  };
+
   const handleSettingsSaved = (settings) => {
     setAdminSettings((prev) => ({ ...prev, ...settings }));
+    setPendingSettings((prev) => ({ ...prev, ...settings }));
   };
 
   return (
@@ -1205,8 +1231,13 @@ export default function AdminPage() {
           {activePanel === 'users' && <UsersPanel />}
           {activePanel === 'workspaces' && <WorkspacesPanel />}
           {activePanel === 'squads' && <SquadsPanel />}
-          {activePanel === 'invitations' && showInvitations && <InvitationsPanel userInvitesEnabled={adminSettings.userInvitesEnabled} globalInvitesEnabled={adminSettings.globalInvitesEnabled} />}
-          {activePanel === 'settings' && <SettingsPanel settings={adminSettings} onSaved={handleSettingsSaved}/>}
+          {activePanel === 'invitations' && showInvitations && <InvitationsPanel
+            userInvitesEnabled={pendingSettings.userInvitesEnabled}
+            globalInvitesEnabled={pendingSettings.globalInvitesEnabled}
+            dbUserInvitesEnabled={adminSettings.userInvitesEnabled}
+            dbGlobalInvitesEnabled={adminSettings.globalInvitesEnabled}
+          />}
+          {activePanel === 'settings' && <SettingsPanel settings={adminSettings} onPreviewChange={handleSettingsPreview} onSaved={handleSettingsSaved}/>}
         </main>
       </div>
     </StdLayout>
