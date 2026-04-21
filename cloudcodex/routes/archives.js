@@ -79,11 +79,7 @@ router.get('/archives/:archiveId/logs', requireAuth, asyncHandler(async (req, re
             p.created_at,
             p.updated_at,
             u.name AS created_by,
-            p.archive_id,
-            gl.repo_owner AS gh_owner,
-            gl.repo_name AS gh_repo,
-            gl.file_path AS gh_path,
-            gl.branch AS gh_branch
+            p.archive_id
      FROM logs p
      LEFT JOIN users u ON p.created_by = u.id
      WHERE p.archive_id = ?
