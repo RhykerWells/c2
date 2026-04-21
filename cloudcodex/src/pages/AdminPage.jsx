@@ -675,34 +675,63 @@ function UsersPanel() {
   );
 }
 
-function SettingsPanel() {
+function SettingsPanel({ settings, onSaved }) {
+  const getSafeSettings = (s) => ({
+    userInvitesEnabled: s.userInvitesEnabled ?? true,
+    globalInvitesEnabled: s.globalInvitesEnabled ?? true,
+    SMTPEnabled: s.SMTPEnabled ?? true,
+    globalSMTPEnabled: s.globalSMTPEnabled ?? true,
+  });
+
+  const [form, setForm] = useState(() => getSafeSettings(settings));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [adminSettings, setAdminSettings] = useState({});
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetchAdminSettings();
-      setAdminSettings(res.settings || {} );
-    } catch { /* ignore */ }
-    setLoading(false);
-  }, []);
+  useEffect(() => {
+    setForm(getSafeSettings(settings));
+  }, [settings]);
 
-  useEffect(() => { load(); }, [load]);
+  const handleInviteToggle = (key, value) => {
+    const next = {
+      ...form,
+      [key]: value,
+    };
+
+    setForm(next);
+
+    onSaved?.({
+      ...settings,
+      userInvitesEnabled: next.userInvitesEnabled,
+      globalInvitesEnabled: next.globalInvitesEnabled,
+    });
+  };
+
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleSave = async () => {
     setError(null);
     setSaving(true);
     try {
-      await updateAdminSettings(adminSettings);
+      const res = await updateAdminSettings({
+        userInvitesEnabled: form.userInvitesEnabled,
+        globalInvitesEnabled: form.globalInvitesEnabled,
+        SMTPEnabled: form.SMTPEnabled,
+      });
+
+      onSaved?.(res.settings);
       showToast('Module settings saved', 'success');
     } catch (e) {
-      showToast(e.body?.message ?? 'Error saving settings.');
+      const message = e.body?.message ?? 'Error saving settings.';
+      setError(message);
+      showToast(message);
     } finally {
       setSaving(false);
     }
   };
+
+  const invitesDisabled = !form.userInvitesEnabled && !form.globalInvitesEnabled;
 
   return (
     <div className="admin-panel">
@@ -715,19 +744,47 @@ function SettingsPanel() {
       {error && <p className="form-error">{error}</p>}
       <div className="admin-panel__body">
         <h3>General settings</h3>
-        {!adminSettings.globalSMTPEnabled && (
-          <p className={`panel-status error`}>Failed to connect to SMTP server at startup. Please restart the application & set valid environment SMTP variables to use this feature. All SMTP-based services will be hidden.</p>
+        {!form.globalSMTPEnabled && (
+          <p className="panel-status error">Failed to connect to SMTP server at startup. Please restart the application & set valid environment SMTP variables to use this feature. All SMTP-based services will be hidden.</p>
         )}
         <label>
           <input
             type="checkbox"
-            checked={adminSettings.SMTPEnabled} 
-            onChange={(e) => setAdminSettings({...adminSettings, SMTPEnabled: e.target.checked})}
-            disabled={!adminSettings.globalSMTPEnabled} 
-          /> Enable SMTP
+            checked={form.SMTPEnabled}
+            onChange={(e) =>
+              updateField('SMTPEnabled', e.target.checked)
+            }
+            disabled={!form.globalSMTPEnabled}
+          />
+          {' '}Enable SMTP
         </label>
         <p className="text-muted">When disabled, any services utilising the SMTP service will be hidden & unusable.</p>
         <h3>Module settings</h3>
+        {invitesDisabled && (
+          <p className="panel-status error">The invitation system has been disabled, new users will be unable to join.</p>
+        )}
+        <label className="setup-checkbox">
+          <input
+            type="checkbox"
+            checked={form.userInvitesEnabled}
+            onChange={(e) =>
+              handleInviteToggle('userInvitesEnabled', e.target.checked)
+            }
+          />
+          Enable user invitations
+        </label>
+        <p className="text-muted">When disabled, email invite based signups are blocked & management is hidden.</p>
+        <label className="setup-checkbox" style={{ marginTop: 16 }}>
+          <input
+            type="checkbox"
+            checked={form.globalInvitesEnabled}
+            onChange={(e) =>
+              handleInviteToggle('globalInvitesEnabled', e.target.checked)
+            }
+          />
+          Enable global invitations
+        </label>
+        <p className="text-muted">When disabled, global invite codes are blocked and management is hidden.</p>
       </div>
     </div>
   );
@@ -889,7 +946,7 @@ function SquadsPanel() {
 
 // ─── Invitations Panel ──────────────────────────────────────
 
-function InvitationsPanel() {
+function InvitationsPanel({ userInvitesEnabled, globalInvitesEnabled }) {
   const [userInvitations, setUserInvitations] = useState([]);
   const [globalInvitations, setGlobalInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -931,12 +988,14 @@ function InvitationsPanel() {
       <div className="admin-panel">
         <div className="admin-panel__header">
           <h3>User Invitations</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => showModal(<InviteUserModal onInvited={load} />, 'modal-md')}>
+          <button className="btn btn-primary btn-sm" disabled={!userInvitesEnabled} onClick={() => showModal(<InviteUserModal onInvited={load} />, 'modal-md')}>
             + Invite User
           </button>
         </div>
         {loading ? (
           <p className="text-muted">Loading…</p>
+        ) : !userInvitesEnabled ? (
+          <p className="text-muted">The email invite system is disabled.</p>
         ) : userInvitations.length === 0 ? (
           <p className="text-muted">No invitations sent yet.</p>
         ) : (
@@ -984,12 +1043,14 @@ function InvitationsPanel() {
       <div className="admin-panel">
         <div className="admin-panel__header">
           <h3>Global Invitations</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => showModal(<InviteGlobalModal onCreated={load} />, 'modal-md')}>
+          <button className="btn btn-primary btn-sm" disabled={!globalInvitesEnabled} onClick={() => showModal(<InviteGlobalModal onCreated={load} />, 'modal-md')}>
             + Create invite
           </button>
         </div>
         {loading ? (
           <p className="text-muted">Loading…</p>
+        ) : !globalInvitesEnabled ? (
+          <p className="text-muted">The global invite system is disabled.</p>
         ) : globalInvitations.length === 0 ? (
           <p className="text-muted">No invitations sent yet.</p>
         ) : (
@@ -1063,19 +1124,46 @@ const NAV_ITEMS = [
   { key: 'users', label: 'Users', icon: '👤' },
   { key: 'workspaces', label: 'Workspaces', icon: '🏢' },
   { key: 'squads', label: 'Squads', icon: '👥' },
-  { key: 'invitations', label: 'Invitations', icon: '✉' },
-  { key: 'settings', label: 'Modules', icon: '⚙' },
 ];
+const INVITATIONS_NAV_ITEM = { key: 'invitations', label: 'Invitations', icon: '✉' };
+const MODULES_NAV_ITEM = { key: 'settings', label: 'Settings', icon: '⚙' };
+
+const DEFAULT_SETTINGS = {
+  SMTPEnabled: true,
+  globalSMTPEnabled: true,
+  userInvitesEnabled: true,
+  globalInvitesEnabled: true,
+};
 
 export default function AdminPage() {
   const [activePanel, setActivePanel] = useState('overview');
   const [authorized, setAuthorized] = useState(null);
+  const [adminSettings, setAdminSettings] = useState({ userInvitesEnabled: true, globalInvitesEnabled: true });
 
   useEffect(() => {
-    fetchAdminStatus()
-      .then(res => setAuthorized(res.isAdmin === true))
-      .catch(() => setAuthorized(false));
+    const load = async () => {
+      try {
+        const [status, settingsRes] = await Promise.all([
+          fetchAdminStatus(),
+          fetchAdminSettings()
+        ]);
+        const loadedSettings = settingsRes.settings ?? DEFAULT_SETTINGS;
+        setAuthorized(status.isAdmin === true);
+        setAdminSettings(loadedSettings);
+      } catch {
+        setAuthorized(false);
+      }
+    };
+    load();
   }, []);
+
+  const showInvitations = adminSettings.userInvitesEnabled || adminSettings.globalInvitesEnabled;
+
+  useEffect(() => {
+    if (!showInvitations && activePanel === 'invitations') {
+      setActivePanel('overview');
+    }
+  }, [activePanel, showInvitations]);
 
   if (authorized === null) {
     return <StdLayout><div className="admin-dashboard"><p className="text-muted">Loading…</p></div></StdLayout>;
@@ -1084,13 +1172,23 @@ export default function AdminPage() {
     return <StdLayout><div className="admin-dashboard"><h1>Access Denied</h1><p>You do not have admin privileges.</p></div></StdLayout>;
   }
 
+  const navItems = [
+    ...NAV_ITEMS,
+    ...(showInvitations ? [INVITATIONS_NAV_ITEM] : []),
+    MODULES_NAV_ITEM
+  ];
+
+  const handleSettingsSaved = (settings) => {
+    setAdminSettings((prev) => ({ ...prev, ...settings }));
+  };
+
   return (
     <StdLayout>
       <div className="admin-dashboard">
         <aside className="admin-sidebar">
           <div className="admin-sidebar__title">Admin Console</div>
           <nav className="admin-sidebar__nav">
-            {NAV_ITEMS.map(item => (
+            {navItems.map(item => (
               <button
                 key={item.key}
                 className={`admin-sidebar__item ${activePanel === item.key ? 'active' : ''}`}
@@ -1107,8 +1205,8 @@ export default function AdminPage() {
           {activePanel === 'users' && <UsersPanel />}
           {activePanel === 'workspaces' && <WorkspacesPanel />}
           {activePanel === 'squads' && <SquadsPanel />}
-          {activePanel === 'invitations' && <InvitationsPanel />}
-          {activePanel === 'settings' && <SettingsPanel/>}
+          {activePanel === 'invitations' && showInvitations && <InvitationsPanel userInvitesEnabled={adminSettings.userInvitesEnabled} globalInvitesEnabled={adminSettings.globalInvitesEnabled} />}
+          {activePanel === 'settings' && <SettingsPanel settings={adminSettings} onSaved={handleSettingsSaved}/>}
         </main>
       </div>
     </StdLayout>
