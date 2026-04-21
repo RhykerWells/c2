@@ -79,8 +79,7 @@ router.get('/admin/settings', requireAuth, requireAdmin, asyncHandler(async (req
  * Update system-wide admin feature flags.
  */
 router.put('/admin/settings', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-  const { } = req.body;
-  const updates = {};
+  const updates = { ...req.body };
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ success: false, message: 'No settings provided' });
