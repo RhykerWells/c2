@@ -554,19 +554,27 @@ function UsersPanel() {
   );
 }
 
-function SettingsPanel({ settings, onSaved }) {
+function SettingsPanel() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [adminSettings, setAdminSettings] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-  }, [settings]);
+  const load = useCallback(async () => {
+    try {
+      const res = await fetchAdminSettings();
+      setAdminSettings(res.settings || {} );
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
     setError(null);
     setSaving(true);
     try {
-      const res = await updateAdminSettings({ ...settings });
-      onSaved?.(res.settings);
+      await updateAdminSettings(adminSettings);
       showToast('Module settings saved', 'success');
     } catch (e) {
       setError(e.body?.message ?? 'Error saving settings.');
@@ -839,18 +847,11 @@ const NAV_ITEMS = [
 export default function AdminPage() {
   const [activePanel, setActivePanel] = useState('overview');
   const [authorized, setAuthorized] = useState(null);
-  const [adminSettings, setAdminSettings] = useState();
 
   useEffect(() => {
     fetchAdminStatus()
       .then(res => setAuthorized(res.isAdmin === true))
       .catch(() => setAuthorized(false));
-  }, []);
-
-  useEffect(() => {
-    fetchAdminSettings()
-      .then(res => setAdminSettings(res.settings || { userInvitesEnabled: true, globalInvitesEnabled: true }))
-      .catch(() => {});
   }, []);
 
   if (authorized === null) {
@@ -859,10 +860,6 @@ export default function AdminPage() {
   if (!authorized) {
     return <StdLayout><div className="admin-dashboard"><h1>Access Denied</h1><p>You do not have admin privileges.</p></div></StdLayout>;
   }
-
-  const handleSettingsSaved = (settings) => {
-    setAdminSettings(settings);
-  };
 
   return (
     <StdLayout>
@@ -888,7 +885,7 @@ export default function AdminPage() {
           {activePanel === 'workspaces' && <WorkspacesPanel />}
           {activePanel === 'squads' && <SquadsPanel />}
           {activePanel === 'invitations' && <InvitationsPanel />}
-          {activePanel === 'settings' && <SettingsPanel settings={adminSettings} onSaved={handleSettingsSaved}/>}
+          {activePanel === 'settings' && <SettingsPanel/>}
         </main>
       </div>
     </StdLayout>
