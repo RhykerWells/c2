@@ -162,6 +162,8 @@ export const searchUsers = (q) => apiFetch('GET', `/api/users/search?q=${encodeU
 
 // --- Admin APIs ---
 
+export const fetchAdminSettings = () => apiFetch('GET', '/api/admin/settings');
+export const updateAdminSettings = (updates) => apiFetch('PUT', '/api/admin/settings', updates)
 export const fetchAdminStatus = () => apiFetch('GET', '/api/admin/status');
 export const fetchAdminStats = () => apiFetch('GET', '/api/admin/stats');
 export const fetchAdminWorkspaces = () => apiFetch('GET', '/api/admin/workspaces');
