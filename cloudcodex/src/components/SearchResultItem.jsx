@@ -7,15 +7,17 @@
 
 import { useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
-import { destroyModal, showModal, docUrl } from '../util';
+import { destroyModal, showModal, docUrl, timeAgo } from '../util';
 
 function DocumentPreviewModal({ doc, onOpen }) {
+  const { dateShorthand, dateLonghand } = timeAgo(doc.created_at);
+  
   return (
     <div className="modal-content">
       <span className="close-button" onClick={destroyModal}>&times;</span>
       <h2>{doc.title}</h2>
       {doc.archive_name && <p className="text-muted">Archive: {doc.archive_name}</p>}
-      <p>Created by: {doc.author} on {new Date(doc.created_at).toLocaleDateString()}</p>
+      <p>Created by: {doc.author} on <span title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span></p>
       {doc.excerpt && <div className="preview-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(doc.excerpt) }} />}
       <button className="btn btn-primary stretched-button" onClick={() => { destroyModal(); onOpen(); }}>Open in Editor</button>
     </div>

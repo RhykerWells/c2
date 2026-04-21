@@ -16,6 +16,7 @@ import {
   showModal, destroyModal,
   fetchCommentCount,
   apiFetch,
+  timeAgo,
 } from '../util';
 import ConfirmDialog from './ConfirmDialog';
 import { toastError } from './Toast';
@@ -886,70 +887,73 @@ export default function ArchiveBrowser() {
       )}
 
       <div className="archive-list-cards">
-        {visibleArchives.map((archive) => (
-          <div key={archive.id} className={`card ${expandedArchive === archive.id ? 'card--expanded' : ''}`}
-            ref={archiveId && archive.id === Number(archiveId) ? (el) => {
-              if (el && !scrolledRef.current) {
-                scrolledRef.current = true;
-                requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-              }
-            } : undefined}>
-            <div className="card__body" onClick={() => toggleArchive(archive.id)} style={{ cursor: 'pointer' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: '0.8em' }}>{expandedArchive === archive.id ? '▾' : '▸'}</span>
-                <h3 className="card__title" style={{ margin: 0 }}>{archive.name}</h3>
-              </div>
-              <p className="card__meta">
-                {archive.squad_name ? `Squad: ${archive.squad_name} · ` : ''}
-                Owner: {archive.created_by} · Created: {new Date(archive.created_at).toLocaleDateString()}
-              </p>
-            </div>
+        {visibleArchives.map((archive) => {
+            const { dateShorthand, dateLonghand } = timeAgo(archive.saved_at);
+            return (
+              <div key={archive.id} className={`card ${expandedArchive === archive.id ? 'card--expanded' : ''}`}
+              ref={archiveId && archive.id === Number(archiveId) ? (el) => {
+                if (el && !scrolledRef.current) {
+                  scrolledRef.current = true;
+                  requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+                }
+              } : undefined}>
+                <div className="card__body" onClick={() => toggleArchive(archive.id)} style={{ cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.8em' }}>{expandedArchive === archive.id ? '▾' : '▸'}</span>
+                    <h3 className="card__title" style={{ margin: 0 }}>{archive.name}</h3>
+                  </div>
+                  <p className="card__meta">
+                    {archive.squad_name ? `Squad: ${archive.squad_name} · ` : ''}
+                    Owner: {archive.created_by} · Created: <span title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span>
+                  </p>
+                </div>
 
-            <div className="card__actions" onClick={(e) => e.stopPropagation()}>
-              {archive.squad_id && archive.workspace_id && (
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => navigate(`/workspaces/${archive.workspace_id}?squad=${archive.squad_id}`)}
-                  title={`Back to ${archive.squad_name || 'squad'}`}
-                >
-                  ← Squad
-                </button>
-              )}
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => showModal(
-                  <RenameArchiveModal archive={archive} onRenamed={loadArchives} />,
-                  'modal-md'
-                )}
-              >
-                Rename
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => showModal(
-                  <ManageArchiveAccessModal
-                    archive={archive}
-                    onAccessUpdated={loadArchives}
-                    onAccessSaved={setAccessNotice}
-                  />,
-                  'modal-lg'
-                )}
-              >
-                Manage Access
-              </button>
-              <button className="btn btn-danger btn-sm" onClick={() => handleDeleteArchive(archive)}>
-                Delete
-              </button>
-            </div>
+                <div className="card__actions" onClick={(e) => e.stopPropagation()}>
+                  {archive.squad_id && archive.workspace_id && (
+                    <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => navigate(`/workspaces/${archive.workspace_id}?squad=${archive.squad_id}`)}
+                    title={`Back to ${archive.squad_name || 'squad'}`}
+                    >
+                      ← Squad
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => showModal(
+                      <RenameArchiveModal archive={archive} onRenamed={loadArchives} />,
+                      'modal-md'
+                    )}
+                    >
+                    Rename
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => showModal(
+                      <ManageArchiveAccessModal
+                      archive={archive}
+                      onAccessUpdated={loadArchives}
+                      onAccessSaved={setAccessNotice}
+                      />,
+                      'modal-lg'
+                    )}
+                    >
+                    Manage Access
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteArchive(archive)}>
+                    Delete
+                  </button>
+                </div>
 
-            {expandedArchive === archive.id && (
-              <div className="card__expanded-content archive-card__expanded">
-                <ArchiveAccess archiveId={archive.id} />
-                <LogTree key={archive.id} archiveId={archive.id} getLogUsers={getLogUsers} />
+                {expandedArchive === archive.id && (
+                  <div className="card__expanded-content archive-card__expanded">
+                    <ArchiveAccess archiveId={archive.id} />
+                    <LogTree key={archive.id} archiveId={archive.id} getLogUsers={getLogUsers} />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+            )
+        })}
       </div>
     </div>
   );

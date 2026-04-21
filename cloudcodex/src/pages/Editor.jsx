@@ -726,7 +726,7 @@ function VersionHistory({ logId, onRestore, versionKey }) {
       <h3>Version History</h3>
       <ul className="version-list">
         {versions.map(v => {
-          const { dateShorthand: createdShorthand, dateLonghand: createdLonghand } = timeAgo(v.saved_at);
+          const { dateShorthand, dateLonghand } = timeAgo(v.saved_at);
 
           return (
             <li key={v.id}>
@@ -750,7 +750,7 @@ function VersionHistory({ logId, onRestore, versionKey }) {
                   <div className="version-preview__header">
                     <div className="version-preview__title-block">
                       <span className="version-preview__title">{preview.title || `Version ${preview.version_number}`}</span>
-                      <span className="version-preview__meta">v{preview.version_number} &middot; {new Date(preview.saved_at).toLocaleString()}{preview.created_by ? ` · ${preview.created_by}` : ''}</span>
+                      <span className="version-preview__meta">v{preview.version_number} &middot; {<span title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span>}{preview.created_by ? ` · ${preview.created_by}` : ''}</span>
                     </div>
                     <span className="version-preview__actions">
                       <button className="btn btn-ghost btn-sm btn-danger" onClick={() => handleDelete(preview)}>Delete</button>
@@ -1228,12 +1228,15 @@ export default function Editor({ embedded = false } = {}) {
             </h2>
           )}
           <div className="document-meta">
-            {documentData && (
-              <>
+            {documentData && (() => {
+              const { dateShorthand, dateLonghand } = timeAgo(documentData.created_at);
+              return (
+                <>
                 <span>Created by: {documentData.name} ({documentData.email})</span>
-                <span>v{documentData.version ?? 1} &middot; {new Date(documentData.created_at).toLocaleString()}</span>
+                <span>v{documentData.version ?? 1} &middot; <span title={dateLonghand} style={{ cursor: 'pointer' }}>{dateShorthand}</span></span>
               </>
-            )}
+              )
+            })()}
             {viewMode === 'edit' && <CollabPresence users={collabUsers} connected={collabConnected} />}
             {documentData && (
               <button
