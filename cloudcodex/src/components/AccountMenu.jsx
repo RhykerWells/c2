@@ -201,19 +201,32 @@ export function AccountInfoUpdatePanel() {
 export function AccountPreferencesPanel() {
   const [method, setMethod] = useState('none'); // 'none' | 'email' | 'totp'
   const [loading, setLoading] = useState(true);
+  const [adminSettings, setAdminSettings] = useState({});
   const [status, setStatus] = useState(null);
   const [totpSetup, setTotpSetup] = useState(null); // { setupToken } when awaiting TOTP confirmation
   const [totpCode, setTotpCode] = useState('');
   const [disableConfirm, setDisableConfirm] = useState(null); // { confirmToken } when awaiting disable confirmation
   const [disableCode, setDisableCode] = useState('');
-
+  
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiFetch('GET', '/api/2fa/status');
-        if (res.success) setMethod(res.method ?? 'none');
-      } catch { /* ignore */ }
-      setLoading(false);
+        const [statusRes, settingsRes] = await Promise.all([
+          apiFetch('GET', '/api/2fa/status'),
+          apiFetch('GET', '/api/admin/settings')
+        ]);
+
+        if (statusRes.success) {
+          setMethod(statusRes.method ?? 'none');
+        }
+
+        if (settingsRes.success) {
+          setAdminSettings(settingsRes.settings || {});
+        }
+      } catch {
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -314,13 +327,15 @@ export function AccountPreferencesPanel() {
           </div>
         </label>
 
-        <label className={`tfa-method-option${method === 'email' ? ' active' : ''}`}>
-          <input type="radio" name="2fa-method" checked={method === 'email'} onChange={handleEnableEmail} />
-          <div>
-            <strong>Email Verification</strong>
-            <p className="text-muted text-sm">A 6-digit code is sent to your email each time you log in.</p>
-          </div>
-        </label>
+        {adminSettings.globalSMTPEnabled && adminSettings.SMTPEnabled && (
+          <label className={`tfa-method-option${method === 'email' ? ' active' : ''}`}>
+            <input type="radio" name="2fa-method" checked={method === 'email'} onChange={handleEnableEmail} />
+            <div>
+              <strong>Email Verification</strong>
+              <p className="text-muted text-sm">A 6-digit code is sent to your email each time you log in.</p>
+            </div>
+          </label>
+        )}
 
         <label className={`tfa-method-option${method === 'totp' ? ' active' : ''}`}>
           <input type="radio" name="2fa-method" checked={method === 'totp' && !totpSetup} onChange={handleEnableTotp} />
