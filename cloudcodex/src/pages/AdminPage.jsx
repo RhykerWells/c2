@@ -595,6 +595,18 @@ function SettingsPanel() {
       {error && <p className="form-error">{error}</p>}
       <div className="admin-panel__body">
         <h3>General settings</h3>
+        {!adminSettings.globalSMTPEnabled && (
+          <p className={`panel-status error`}>Failed to connect to SMTP server at startup. Please restart the application & set valid environment SMTP variables to use this feature. All SMTP-based services will be hidden.</p>
+        )}
+        <label>
+          <input
+            type="checkbox"
+            checked={adminSettings.SMTPEnabled} 
+            onChange={(e) => setAdminSettings({...adminSettings, SMTPEnabled: e.target.checked})}
+            disabled={!adminSettings.globalSMTPEnabled} 
+          /> Enable SMTP
+        </label>
+        <p className="text-muted">When disabled, any services utilising the SMTP service will be hidden & unusable.</p>
         <h3>Module settings</h3>
       </div>
     </div>
