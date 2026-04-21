@@ -796,6 +796,7 @@ router.post('/2fa/enable', requireAuth, asyncHandler(async (req, res) => {
     );
 
     // Email the QR code to the user
+    let emailed = true
     try {
       await sendEmail({
         to: req.user.email,
@@ -811,13 +812,20 @@ router.post('/2fa/enable', requireAuth, asyncHandler(async (req, res) => {
       });
     } catch (err) {
       console.error('Failed to send TOTP setup email:', err);
-      return res.status(500).json({ success: false, message: 'Failed to send TOTP setup email.' });
+      emailed = false;
+    }
+
+    let message = "A QR code has been created, scan it with your authenticator app, then enter the code below:"
+    if (emailed) {
+      message = "A QR code has been sent to your email, scan it with your authenticator app, then enter the code below:"
     }
 
     return res.json({
       success: true,
-      message: 'A QR code has been sent to your email. Scan it with your authenticator app, then enter the code below to complete setup.',
+      message: message,
       setupToken,
+      secret: secret.base32,
+      qrDataUrl
     });
   }
 
@@ -880,15 +888,28 @@ router.post('/2fa/totp/confirm', requireAuth, asyncHandler(async (req, res) => {
 
 /**
  * POST /api/2fa/disable
- * Sends a verification code to the user's email. Returns a confirmToken.
+ * If 2FA method is TOTP: returns a confirmToken (user will verify with their authenticator app).
+ * If 2FA method is EMAIL: sends a verification code to email and returns a confirmToken.
  * The user must call POST /api/2fa/disable/confirm with the token and code to complete.
  */
 router.post('/2fa/disable', requireAuth, asyncHandler(async (req, res) => {
-  const [userRow] = await c2_query(`SELECT email, two_factor_method FROM users WHERE id = ? LIMIT 1`, [req.user.id]);
+  const [userRow] = await c2_query(`SELECT email, two_factor_method, totp_secret FROM users WHERE id = ? LIMIT 1`, [req.user.id]);
   if (!userRow || userRow.two_factor_method === 'none') {
     return res.json({ success: true, message: 'Two-factor authentication is already disabled.' });
   }
 
+  const confirmToken = crypto.randomBytes(32).toString('hex');
+  await c2_query(
+    `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
+    [req.user.id, confirmToken]
+  );
+
+  // If using TOTP, user will verify with their authenticator app
+  if (userRow.two_factor_method === 'totp' && userRow.totp_secret) {
+    return res.json({ success: true, confirmToken, message: 'Enter the 6-digit code from your authenticator app to confirm disabling 2FA.', method: 'totp' });
+  }
+
+  // For email method, generate and send email code
   // Invalidate any existing unused codes for this user
   await c2_query(`UPDATE two_factor_codes SET used = TRUE WHERE user_id = ? AND used = FALSE`, [req.user.id]);
 
@@ -896,12 +917,6 @@ router.post('/2fa/disable', requireAuth, asyncHandler(async (req, res) => {
   await c2_query(
     `INSERT INTO two_factor_codes (user_id, code, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
     [req.user.id, code]
-  );
-
-  const confirmToken = crypto.randomBytes(32).toString('hex');
-  await c2_query(
-    `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
-    [req.user.id, confirmToken]
   );
 
   try {
@@ -921,13 +936,13 @@ router.post('/2fa/disable', requireAuth, asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to send 2FA disable confirmation email.' });
   }
 
-  res.json({ success: true, confirmToken, message: 'A verification code has been sent to your email.' });
+  res.json({ success: true, confirmToken, message: 'A verification code has been sent to your email.', method: 'email' });
 }));
 
 /**
  * POST /api/2fa/disable/confirm
  * Body: { confirmToken, code }
- * Validates the email code and disables 2FA.
+ * Validates the verification code (email or TOTP) and disables 2FA.
  */
 router.post('/2fa/disable/confirm', requireAuth, asyncHandler(async (req, res) => {
   const { confirmToken, code } = req.body;
@@ -946,18 +961,44 @@ router.post('/2fa/disable/confirm', requireAuth, asyncHandler(async (req, res) =
     return res.status(401).json({ success: false, message: 'Verification session expired. Please try again.' });
   }
 
-  // Validate email code
-  const [codeRecord] = await c2_query(
-    `SELECT id, expires_at FROM two_factor_codes WHERE user_id = ? AND code = ? AND used = FALSE ORDER BY created_at DESC LIMIT 1`,
-    [req.user.id, code]
+  // Determine which 2FA method the user has and validate accordingly
+  const [userRow] = await c2_query(
+    `SELECT two_factor_method, totp_secret FROM users WHERE id = ? LIMIT 1`,
+    [req.user.id]
   );
 
-  if (!codeRecord || codeRecord.expires_at <= new Date()) {
+  let verified = false;
+
+  if (userRow?.two_factor_method === 'totp' && userRow.totp_secret) {
+    // Validate TOTP code
+    const totp = new OTPAuth.TOTP({
+      issuer: 'Cloud Codex',
+      label: 'Cloud Codex',
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(userRow.totp_secret),
+    });
+    const delta = totp.validate({ token: code, window: 1 });
+    verified = delta !== null;
+  } else if (userRow?.two_factor_method === 'email') {
+    // Validate email code
+    const [codeRecord] = await c2_query(
+      `SELECT id, expires_at FROM two_factor_codes WHERE user_id = ? AND code = ? AND used = FALSE ORDER BY created_at DESC LIMIT 1`,
+      [req.user.id, code]
+    );
+
+    if (codeRecord && codeRecord.expires_at > new Date()) {
+      await c2_query(`UPDATE two_factor_codes SET used = TRUE WHERE id = ?`, [codeRecord.id]);
+      verified = true;
+    }
+  }
+
+  if (!verified) {
     return res.status(401).json({ success: false, message: 'Invalid or expired verification code' });
   }
 
   // Mark as used
-  await c2_query(`UPDATE two_factor_codes SET used = TRUE WHERE id = ?`, [codeRecord.id]);
   await c2_query(`UPDATE password_reset_tokens SET used = TRUE WHERE id = ?`, [tokenRecord.id]);
 
   // Disable 2FA

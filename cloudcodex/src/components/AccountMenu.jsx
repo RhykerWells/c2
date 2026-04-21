@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import {
-  getSessStorage, apiFetch, getSessionTokenFromCookie,
+  getSessStorage, apiFetch, getSessionTokenFromCookie, showModal, destroyModal
 } from '../util';
 import { applyPrefsToDOM, loadUserPrefs, saveUserPrefs, ACCENT_COLORS, FONT_SIZES, DENSITIES } from '../userPrefs';
 
@@ -224,7 +224,7 @@ export function AccountPreferencesPanel() {
     try {
       const res = await apiFetch('POST', '/api/2fa/disable');
       if (res.confirmToken) {
-        setDisableConfirm({ confirmToken: res.confirmToken });
+        setDisableConfirm({ confirmToken: res.confirmToken, method: res.method ?? 'email' });
         setDisableCode('');
         setStatus({ type: 'success', message: res.message });
       } else {
@@ -239,7 +239,10 @@ export function AccountPreferencesPanel() {
   const handleConfirmDisable = async () => {
     setStatus(null);
     if (!disableCode || disableCode.length !== 6) {
-      setStatus({ type: 'error', message: 'Please enter the 6-digit code sent to your email.' });
+      const message = disableConfirm?.method === 'totp'
+        ? 'Please enter the 6-digit code from your authenticator app.'
+        : 'Please enter the 6-digit code sent to your email.';
+      setStatus({ type: 'error', message });
       return;
     }
     try {
@@ -274,7 +277,7 @@ export function AccountPreferencesPanel() {
     setTotpCode('');
     try {
       const res = await apiFetch('POST', '/api/2fa/enable', { method: 'totp' });
-      setTotpSetup({ setupToken: res.setupToken });
+      setTotpSetup({ setupToken: res.setupToken, qrDataUrl: res.qrDataUrl, secret: res.secret, message: res.message });
       setStatus({ type: 'success', message: res.message });
     } catch (e) {
       setStatus({ type: 'error', message: e.body?.message ?? 'Error starting authenticator setup.' });
@@ -333,7 +336,10 @@ export function AccountPreferencesPanel() {
 
       {totpSetup && (
         <div className="totp-confirm-section">
-          <p className="text-sm">Check your email for the QR code. Scan it with your authenticator app, then enter the code below:</p>
+          <p className="text-sm">{totpSetup.message}</p>
+          {totpSetup?.qrDataUrl && (
+            <button className="btn btn-ghost btn-sm" onClick={() => showModal(<ViewTOTPCode qrDataUrl={totpSetup.qrDataUrl} secret={totpSetup.secret} />, 'modal-md')}>View TOTP Info</button>
+          )}
           <div className="totp-confirm-form">
             <input
               type="text"
@@ -353,7 +359,11 @@ export function AccountPreferencesPanel() {
 
       {disableConfirm && (
         <div className="totp-confirm-section" style={{ borderColor: 'var(--color-danger)' }}>
-          <p className="text-sm">Enter the verification code sent to your email to confirm disabling 2FA:</p>
+          <p className="text-sm">
+            {disableConfirm.method === 'totp'
+              ? 'Enter the 6-digit code from your authenticator app to confirm disabling 2FA:'
+              : 'Enter the verification code sent to your email to confirm disabling 2FA:'}
+          </p>
           <div className="totp-confirm-form">
             <input
               type="text"
@@ -370,6 +380,31 @@ export function AccountPreferencesPanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ViewTOTPCode({ qrDataUrl, secret, destroyModal }) {
+  // Function to handle copy to clipboard action
+  const handleCopy = () => {
+    navigator.clipboard.writeText(secret);
+    alert('Secret copied to clipboard!');
+  };
+
+  return (
+    <div className="modal-content">
+      <span className="close-button" onClick={destroyModal}>&times;</span>
+      <h2 style={{ marginBottom: '20px' }}>TOTP Info</h2>
+
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        {/* Display QR Code in the center */}
+        <img src={qrDataUrl} alt="QR Code" style={{ maxWidth: '100%', maxHeight: '250px' }} />
+      </div>
+
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <input className="totp-secret-input" type="text" value={secret} style={{ marginRight: 2 }} readOnly/>
+        <button className="btn btn-ghost" onClick={handleCopy} style={{ marginLeft: 2 }}>Copy Secret</button>
+      </div>
     </div>
   );
 }
