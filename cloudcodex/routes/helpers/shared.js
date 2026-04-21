@@ -48,6 +48,7 @@ export function sanitizeHtml(html) {
 export const DEFAULT_PERMISSIONS = { create_squad: false, create_archive: false, create_log: true };
 
 export const DEFAULT_GLOBAL_SETTINGS = {
+  globalSMTPEnabled: false,
 };
 
 function parseSettingValue(value) {
