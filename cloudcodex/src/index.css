@@ -7963,3 +7963,59 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover { background: var(--bg-hover-strong); }
+
+
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch__track {
+  position: relative;
+  width: 30px;
+  height: 15px;
+  border-radius: 999px;
+  background: #e5635d;
+  transition: background 180ms ease;
+  flex-shrink: 0;
+}
+
+.toggle-switch__track::before {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 180ms ease;
+}
+
+.toggle-switch input:checked + .toggle-switch__track {
+  background: #22c55e;
+}
+
+.toggle-switch input:checked:not(:disabled) + .toggle-switch__track::before {
+  transform: translateX(14px);
+}
+
+.toggle-switch input[type="checkbox"]:disabled + .toggle-switch__track {
+  background: var(--text-muted);
+}
+
+.toggle-switch__label {
+  font-weight: 500;
+  color: #111827;
+}

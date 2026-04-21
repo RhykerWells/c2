@@ -768,7 +768,7 @@ function SettingsPanel({ settings, onPreviewChange, onSaved }) {
         {!form.globalSMTPEnabled && (
           <p className="panel-status error">Failed to connect to SMTP server at startup. Please restart the application & set valid environment SMTP variables to use this feature. All SMTP-based services will be hidden.</p>
         )}
-        <label>
+        <label className="toggle-switch">
           <input
             type="checkbox"
             checked={form.SMTPEnabled}
@@ -777,14 +777,15 @@ function SettingsPanel({ settings, onPreviewChange, onSaved }) {
             }
             disabled={!form.globalSMTPEnabled}
           />
-          {' '}Enable SMTP
+          <span className="toggle-switch__track" />
+          Enable SMTP
         </label>
         <p className="text-muted">When disabled, any services utilising the SMTP service will be hidden & unusable.</p>
         <h3>Module settings</h3>
         {invitesDisabled && (
           <p className="panel-status error">The invitation system has been disabled, new users will be unable to join.</p>
         )}
-        <label className="setup-checkbox">
+        <label className="toggle-switch">
           <input
             type="checkbox"
             checked={form.userInvitesEnabled}
@@ -792,10 +793,11 @@ function SettingsPanel({ settings, onPreviewChange, onSaved }) {
               handleInviteToggle('userInvitesEnabled', e.target.checked)
             }
           />
+          <span className="toggle-switch__track" />
           Enable user invitations
         </label>
         <p className="text-muted">When disabled, email invite based signups are blocked & management is hidden.</p>
-        <label className="setup-checkbox" style={{ marginTop: 16 }}>
+        <label className="toggle-switch">
           <input
             type="checkbox"
             checked={form.globalInvitesEnabled}
@@ -803,6 +805,7 @@ function SettingsPanel({ settings, onPreviewChange, onSaved }) {
               handleInviteToggle('globalInvitesEnabled', e.target.checked)
             }
           />
+          <span className="toggle-switch__track" />
           Enable global invitations
         </label>
         <p className="text-muted">When disabled, global invite codes are blocked and management is hidden.</p>
