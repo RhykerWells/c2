@@ -207,24 +207,19 @@ export function setupCollabServer(server) {
     // Origin validation to prevent Cross-Site WebSocket Hijacking (CSWSH)
     const origin = request.headers.origin;
     const host = request.headers.host;
-    if (!origin) {
-      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    if (origin) {
-      try {
+    try {
+      if (origin) {
         const originHost = new URL(origin).host;
         if (originHost !== host) {
           socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
           socket.destroy();
           return;
         }
-      } catch {
-        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-        socket.destroy();
-        return;
       }
+    } catch {
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+      socket.destroy();
+      return;
     }
 
     const logId = Number(url.searchParams.get('logId'));
@@ -235,68 +230,64 @@ export function setupCollabServer(server) {
       return;
     }
 
-    // Upgrade the connection first — auth happens in the first message
+    // Extract sessionToken from request headers
+    const cookieHeader = request.headers.cookie || '';
+    const cookies = Object.fromEntries(
+      cookieHeader.split(';').map(c => {
+        const [k, v] = c.trim().split('=');
+        return [k, v];
+      })
+    );
+
+    const token = cookies.sessionToken;
+
+    if (!token) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    // Authenticate
+    let user;
+    try {
+      user = await validateAndAutoLogin(token);
+    } catch {
+        // auth error
+    }
+
+    if (!user) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    // Enforce per-user connection limit
+    const currentCount = userConnectionCounts.get(user.id) || 0;
+    if (currentCount >= MAX_CONNECTIONS_PER_USER) {
+      socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    // Access checks
+    const hasAccess = await checkLogReadAccess(logId, user);
+    if (!hasAccess) {
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    const canWrite = Boolean(await checkLogWriteAccess(logId, user));
+
+    // Upgrade
     wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, { logId });
+      wss.emit('connection', ws, { logId, user, canWrite });
     });
   });
 
-  wss.on('connection', async (ws, { logId }) => {
-    // Wait for the first message to be an auth message with the session token.
-    // The client must send { type: 'auth', token: '...' } within 5 seconds.
-    const AUTH_TIMEOUT_MS = 5000;
-    const authTimer = setTimeout(() => {
-      ws.close(4001, 'Authentication timeout');
-    }, AUTH_TIMEOUT_MS);
-
-    ws.once('message', async (data) => {
-      clearTimeout(authTimer);
-
-      let msg;
-      try {
-        msg = JSON.parse(data.toString());
-      } catch {
-        ws.close(4002, 'Invalid auth message');
-        return;
-      }
-
-      if (msg.type !== 'auth' || typeof msg.token !== 'string') {
-        ws.close(4002, 'First message must be auth');
-        return;
-      }
-
-      // Authenticate
-      let user;
-      try {
-        user = await validateAndAutoLogin(msg.token);
-      } catch {
-        // auth error
-      }
-
-      if (!user) {
-        ws.close(4003, 'Unauthorized');
-        return;
-      }
-
-      // Enforce per-user connection limit
-      const currentCount = userConnectionCounts.get(user.id) || 0;
-      if (currentCount >= MAX_CONNECTIONS_PER_USER) {
-        ws.close(4004, 'Too many connections');
-        return;
-      }
-
-      // Check read access at minimum
-      const hasAccess = await checkLogReadAccess(logId, user);
-      if (!hasAccess) {
-        ws.close(4003, 'Access denied');
-        return;
-      }
-
-      const canWrite = Boolean(await checkLogWriteAccess(logId, user));
-
-      // Auth succeeded — set up the document session
-      setupDocSession(ws, user, logId, canWrite);
-    });
+  // Auth succeeded — set up the document session
+  wss.on('connection', async (ws, { logId, user, canWrite }) => {
+    setupDocSession(ws, user, logId, canWrite);
   });
 }
 

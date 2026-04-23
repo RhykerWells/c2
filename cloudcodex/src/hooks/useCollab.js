@@ -98,8 +98,6 @@ export default function useCollab(logId, onRemoteUpdate, onRemoteComment, onPubl
       ydoc.on('update', docUpdateHandler);
 
       ws.onopen = () => {
-        // Auth must be the first message
-        ws.send(JSON.stringify({ type: 'auth', token }));
         if (!disposed) setCollabConnected(true);
       };
 
