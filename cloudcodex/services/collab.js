@@ -28,6 +28,13 @@ const docs = new Map();
 // Track per-user connection count across all documents
 const userConnectionCounts = new Map(); // userId → count
 
+// Persist a stable color per user across connections while the server is running
+const userColors = new Map(); // userId → color
+// Timed cleanup for userColors: remove entries for users with no active
+// connections after this timeout to avoid unbounded memory growth.
+const USER_COLOR_CLEANUP_MS = 5 * 60 * 1000; // 5 minutes
+const userColorCleanup = new Map(); // userId -> timeoutId
+
 const SAVE_DEBOUNCE_MS = 3000;
 const CLEANUP_DELAY_MS = 30000;
 const MAX_MESSAGE_SIZE = 5 * 1024 * 1024;   // 5 MB max WebSocket message
@@ -35,6 +42,7 @@ const MAX_HTML_SIZE   = 2 * 1024 * 1024;    // 2 MB max document HTML
 const MAX_CONNECTIONS_PER_USER = 10;         // Max simultaneous WS connections per user
 const RATE_LIMIT_WINDOW_MS = 1000;           // 1 second window
 const RATE_LIMIT_MAX_MESSAGES = 60;          // Max messages per window
+const PING_INTERVAL_MS = 30000;              // Ping clients every 30s to keep connections alive
 
 /**
  * Get or create a Yjs document for a log.
@@ -198,6 +206,28 @@ export function setupCollabServer(server) {
     maxPayload: MAX_MESSAGE_SIZE,
   });
 
+  // Heartbeat: detect dead peers and keep intermediate proxies from closing idle sockets.
+  // Each ws gets an `isAlive` flag toggled on `pong`. The server pings periodically; if
+  // a client fails to respond, terminate its socket so cleanup runs.
+  const heartbeatInterval = setInterval(() => {
+    for (const client of wss.clients) {
+      try {
+        if (client.isAlive === false) {
+          client.terminate();
+          continue;
+        }
+        client.isAlive = false;
+        client.ping(() => {});
+      } catch (err) {
+        // ignore individual client errors
+      }
+    }
+  }, PING_INTERVAL_MS);
+
+  wss.on('close', () => {
+    clearInterval(heartbeatInterval);
+  });
+
   server.prependListener('upgrade', async (request, socket, head) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
 
@@ -310,7 +340,14 @@ async function setupDocSession(ws, user, logId, canWrite) {
       entry.cleanupTimer = null;
     }
 
-    const color = nextColor();
+    // Assign a stable color for this user across their connections.
+    // If a cleanup timer exists (user reconnected before the timeout), clear it.
+    if (userColorCleanup.has(user.id)) {
+      clearTimeout(userColorCleanup.get(user.id));
+      userColorCleanup.delete(user.id);
+    }
+    const color = userColors.get(user.id) || nextColor();
+    userColors.set(user.id, color);
     entry.conns.set(ws, { user, canWrite, color });
 
     // Track per-user connection count
@@ -570,6 +607,15 @@ async function setupDocSession(ws, user, logId, canWrite) {
         scheduleSave(entry);
         scheduleCleanup(entry);
       }
+      // If the user has no more connections, schedule removal of their color
+      if ((userConnectionCounts.get(user.id) || 0) === 0) {
+        if (userColorCleanup.has(user.id)) clearTimeout(userColorCleanup.get(user.id));
+        const tid = setTimeout(() => {
+          userColors.delete(user.id);
+          userColorCleanup.delete(user.id);
+        }, USER_COLOR_CLEANUP_MS);
+        userColorCleanup.set(user.id, tid);
+      }
     });
 
     ws.on('error', () => {
@@ -581,6 +627,15 @@ async function setupDocSession(ws, user, logId, canWrite) {
       else userConnectionCounts.set(user.id, count);
 
       broadcastAwareness(entry);
+      // Schedule color cleanup if this was the user's last connection
+      if ((userConnectionCounts.get(user.id) || 0) === 0) {
+        if (userColorCleanup.has(user.id)) clearTimeout(userColorCleanup.get(user.id));
+        const tid = setTimeout(() => {
+          userColors.delete(user.id);
+          userColorCleanup.delete(user.id);
+        }, USER_COLOR_CLEANUP_MS);
+        userColorCleanup.set(user.id, tid);
+      }
     });
 }
 
