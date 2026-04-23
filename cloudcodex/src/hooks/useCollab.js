@@ -18,7 +18,6 @@ import * as Y from 'yjs';
 import * as syncProtocol from 'y-protocols/sync';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
-import { getSessionTokenFromCookie } from '../util';
 
 /**
  * @param {number|string} logId  — The document/log ID to collaborate on
@@ -62,9 +61,6 @@ export default function useCollab(logId, onRemoteUpdate, onRemoteComment, onPubl
     let disposed = false;
 
     function connect() {
-      const token = getSessionTokenFromCookie();
-      if (!token) return;
-
       setSynced(false);
 
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -98,8 +94,6 @@ export default function useCollab(logId, onRemoteUpdate, onRemoteComment, onPubl
       ydoc.on('update', docUpdateHandler);
 
       ws.onopen = () => {
-        // Auth must be the first message
-        ws.send(JSON.stringify({ type: 'auth', token }));
         if (!disposed) setCollabConnected(true);
       };
 
