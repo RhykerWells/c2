@@ -888,7 +888,7 @@ export default function ArchiveBrowser() {
 
       <div className="archive-list-cards">
         {visibleArchives.map((archive) => {
-            const { dateShorthand, dateLonghand } = timeAgo(archive.saved_at);
+            const { dateShorthand, dateLonghand } = timeAgo(archive.created_at);
             return (
               <div key={archive.id} className={`card ${expandedArchive === archive.id ? 'card--expanded' : ''}`}
               ref={archiveId && archive.id === Number(archiveId) ? (el) => {
