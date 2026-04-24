@@ -542,10 +542,15 @@ export async function attemptAutoLogin() {
   const cached = getSessStorage('currentUser');
   if (cached) return cached;
 
-  const response = await serverReq('POST', '/api/validate-session', {});
-  if (response.valid) {
-    setSessStorage('currentUser', response.user);
-    return response.user;
+  try {
+    const response = await serverReq('POST', '/api/validate-session', {});
+    if (response.valid) {
+      setSessStorage('currentUser', response.user);
+      return response.user;
+    }
+  } catch (error) {
+    // Session validation failed (no valid token, server error, etc.)
+    removeSessStorage('currentUser');
   }
 
   return null;
