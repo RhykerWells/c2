@@ -8019,3 +8019,10 @@ body {
   font-weight: 500;
   color: #111827;
 }
+
+.workspace-squads__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
