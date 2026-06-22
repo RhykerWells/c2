@@ -1,5 +1,15 @@
+name: cloudcodex
+
+volumes:
+  db_data:
+
+networks:
+  default:
+    external: true
+    name: npm-rhykerw-services
+
 services:
-  database:
+  cloudcodex-db:
     image: mysql:8
     container_name: cloudcodex-db
     restart: unless-stopped
@@ -21,20 +31,17 @@ services:
       timeout: 8s
       retries: 15
 
-  app:
+  cloudcodex-app:
     build:
       context: ./cloudcodex
       dockerfile: Dockerfile
     container_name: cloudcodex-app
     restart: unless-stopped
     depends_on:
-      database:
+      cloudcodex-db:
         condition: service_healthy
     ports:
       - "3000:3000"
     env_file:
       - .env
     working_dir: /app
-
-volumes:
-  db_data:
